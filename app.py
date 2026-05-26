@@ -14,43 +14,72 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Theme Definitions ─────────────────────────────────────────────────────────
-THEMES = {
-    "🌌 Galaxy": {
-        "bg": "linear-gradient(135deg,#0f0a1e,#1e1040)",
-        "sidebar_bg": "linear-gradient(180deg,#050010,#0f0a1e)",
-        "sidebar_text": "#ddd6fe", "sidebar_btn": "#6d28d9", "sidebar_btn_text": "#ddd6fe",
-        "card_border": "#2e1065", "card_accent": "#7c3aed",
-        "h1": "#ddd6fe", "h2": "#c4b5fd", "text": "#ede9fe",
-        "btn_bg": "#1e1040", "btn_text": "#ddd6fe", "btn_hover": "#6d28d9",
-        "select_border": "#6d28d9", "hr": "#2e1065",
-        "progress": "linear-gradient(90deg,#6d28d9,#a855f7)", "caption": "#a855f7",
-        "aqi_scale": ["#34d399","#818cf8","#c084fc","#f472b6","#f97316","#7c3aed"],
-    },
-}
-
-def apply_theme(t):
-    st.markdown(f"""
+# ── Galaxy Theme ──────────────────────────────────────────────────────────────
+st.markdown("""
 <style>
-.stApp {{background:{t["bg"]};color:{t["text"]};}}
-[data-testid="stSidebar"]{{background:{t["sidebar_bg"]} !important;}}
-[data-testid="stSidebar"] *{{color:{t["sidebar_text"]} !important;}}
-[data-testid="stSidebar"] .stButton>button{{background:{t["sidebar_btn"]} !important;color:{t["sidebar_btn_text"]} !important;border:none !important;font-weight:700 !important;border-radius:8px !important;}}
-[data-testid="stSidebar"] hr{{border-color:{t["sidebar_btn"]} !important;}}
-h1{{color:{t["h1"]} !important;}}
-h2,h3{{color:{t["h2"]} !important;}}
-[data-testid="metric-container"]{{background:rgba(255,255,255,0.08);border:2px solid {t["card_border"]};border-left:5px solid {t["card_accent"]};border-radius:12px;padding:16px 20px !important;box-shadow:0 2px 12px rgba(0,0,0,0.12);}}
-[data-testid="metric-container"] label{{color:{t["h2"]} !important;font-weight:600 !important;}}
-[data-testid="metric-container"] [data-testid="stMetricValue"]{{color:{t["h1"]} !important;font-weight:800 !important;}}
-[data-testid="metric-container"] [data-testid="stMetricDelta"]{{color:{t["card_accent"]} !important;}}
-.stButton>button{{background:{t["btn_bg"]} !important;color:{t["btn_text"]} !important;border:none !important;border-radius:8px !important;font-weight:600 !important;}}
-.stButton>button:hover{{background:{t["btn_hover"]} !important;}}
-[data-baseweb="select"]>div{{border-color:{t["select_border"]} !important;border-radius:8px !important;}}
-hr{{border-color:{t["hr"]} !important;}}
-[data-testid="stPlotlyChart"]{{border:1.5px solid {t["card_border"]};border-radius:12px;padding:8px;background:rgba(255,255,255,0.05);}}
-[data-testid="stProgressBar"]>div>div{{background:{t["progress"]} !important;}}
-.stCaption{{color:{t["caption"]} !important;}}
-</style>""", unsafe_allow_html=True)
+.stApp {
+    background: linear-gradient(135deg, #0f0a1e 0%, #1e1040 100%);
+    color: #ede9fe;
+}
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #050010 0%, #0f0a1e 100%) !important;
+}
+[data-testid="stSidebar"] * { color: #ddd6fe !important; }
+[data-testid="stSidebar"] .stButton > button {
+    background: #6d28d9 !important;
+    color: #ddd6fe !important;
+    border: none !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover { opacity: 0.85; }
+[data-testid="stSidebar"] hr { border-color: #6d28d9 !important; }
+h1 { color: #ddd6fe !important; }
+h2, h3 { color: #c4b5fd !important; }
+[data-testid="metric-container"] {
+    background: rgba(109,40,217,0.12);
+    border: 2px solid #2e1065;
+    border-left: 5px solid #7c3aed;
+    border-radius: 12px;
+    padding: 16px 20px !important;
+    box-shadow: 0 0 18px rgba(124,58,237,0.25);
+}
+[data-testid="metric-container"] label { color: #c4b5fd !important; font-weight: 600 !important; }
+[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #ddd6fe !important; font-weight: 800 !important; }
+[data-testid="metric-container"] [data-testid="stMetricDelta"] { color: #a855f7 !important; }
+.stButton > button {
+    background: #1e1040 !important;
+    color: #ddd6fe !important;
+    border: 1px solid #6d28d9 !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+}
+.stButton > button:hover { background: #6d28d9 !important; }
+[data-baseweb="select"] > div {
+    border-color: #6d28d9 !important;
+    border-radius: 8px !important;
+    background: #0f0a1e !important;
+    color: #ede9fe !important;
+}
+hr { border-color: #2e1065 !important; }
+[data-testid="stPlotlyChart"] {
+    border: 1.5px solid #2e1065;
+    border-radius: 12px;
+    padding: 8px;
+    background: rgba(109,40,217,0.06);
+    box-shadow: 0 0 24px rgba(124,58,237,0.15);
+}
+[data-testid="stProgressBar"] > div > div {
+    background: linear-gradient(90deg, #6d28d9, #a855f7) !important;
+}
+[data-testid="stDataFrame"] {
+    border: 1.5px solid #2e1065 !important;
+    border-radius: 10px !important;
+}
+.stCaption { color: #a855f7 !important; }
+[data-testid="stAlert"] { border-radius: 10px !important; }
+</style>
+""", unsafe_allow_html=True)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 CITIES = [
@@ -87,12 +116,12 @@ UNITS       = {"PM2.5": "µg/m³", "PM10": "µg/m³", "NO2": "µg/m³",
                "SO2": "µg/m³", "CO": "mg/m³", "O3": "µg/m³"}
 
 AQI_SCALE = [
-    (0,   50,  "Good",         "#22c55e"),
-    (51,  100, "Satisfactory", "#84cc16"),
-    (101, 200, "Moderate",     "#eab308"),
-    (201, 300, "Poor",         "#f97316"),
-    (301, 400, "Very Poor",    "#ef4444"),
-    (401, 500, "Severe",       "#8b5cf6"),
+    (0,   50,  "Good",         "#34d399"),
+    (51,  100, "Satisfactory", "#818cf8"),
+    (101, 200, "Moderate",     "#a78bfa"),
+    (201, 300, "Poor",         "#f472b6"),
+    (301, 400, "Very Poor",    "#f97316"),
+    (401, 500, "Severe",       "#7c3aed"),
 ]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -143,16 +172,6 @@ with st.sidebar:
     st.title("🌍 India AQI Monitor")
     st.divider()
 
-    chosen_theme = st.selectbox(
-        "🎨 Dashboard Theme",
-        list(THEMES.keys()),
-        index=10,
-        key="theme_choice",
-    )
-    apply_theme(THEMES[chosen_theme])
-
-    st.divider()
-
     if st.button("🔄 Refresh Data", use_container_width=True):
         st.session_state.df = generate_data()
         st.rerun()
@@ -180,17 +199,6 @@ with st.sidebar:
         st.markdown(f"{aqi_emoji((lo+hi)//2)} **{lo}–{hi}** — {label}")
 
 df = st.session_state.df
-
-# Dynamic AQI scale colors from theme
-_tc = THEMES[st.session_state.get("theme_choice", "🌌 Galaxy")]["aqi_scale"]
-AQI_SCALE = [
-    (0,   50,  "Good",         _tc[0]),
-    (51,  100, "Satisfactory", _tc[1]),
-    (101, 200, "Moderate",     _tc[2]),
-    (201, 300, "Poor",         _tc[3]),
-    (301, 400, "Very Poor",    _tc[4]),
-    (401, 500, "Severe",       _tc[5]),
-]
 
 # Apply filters
 dff = df[(df["AQI"] >= aqi_range[0]) & (df["AQI"] <= aqi_range[1])]
@@ -246,12 +254,12 @@ if "Map" in view_mode:
                 size=dff2["size_val"],
                 color=dff2["AQI"],
                 colorscale=[
-                    [0.00, "#22c55e"], [0.10, "#22c55e"],
-                    [0.10, "#84cc16"], [0.20, "#84cc16"],
-                    [0.20, "#eab308"], [0.40, "#eab308"],
-                    [0.40, "#f97316"], [0.60, "#f97316"],
-                    [0.60, "#ef4444"], [0.80, "#ef4444"],
-                    [0.80, "#8b5cf6"], [1.00, "#8b5cf6"],
+                    [0.00, "#34d399"], [0.10, "#34d399"],
+                    [0.10, "#818cf8"], [0.20, "#818cf8"],
+                    [0.20, "#a78bfa"], [0.40, "#a78bfa"],
+                    [0.40, "#f472b6"], [0.60, "#f472b6"],
+                    [0.60, "#f97316"], [0.80, "#f97316"],
+                    [0.80, "#7c3aed"], [1.00, "#7c3aed"],
                 ],
                 cmin=0, cmax=500,
                 colorbar=dict(title="AQI", thickness=14, len=0.6),
@@ -359,7 +367,7 @@ elif "Trend" in view_mode:
     else:
         hours       = list(range(24))
         hour_labels = [f"{h:02d}:00" for h in hours]
-        palette     = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#8b5cf6", "#06b6d4"]
+        palette     = ["#818cf8", "#a855f7", "#34d399", "#f472b6", "#f97316", "#38bdf8"]
 
         fig_line = go.Figure()
         for i, city in enumerate(selected_cities[:6]):
@@ -446,12 +454,10 @@ elif "Pollutant" in view_mode:
     fig_radar = go.Figure()
 
     fig_radar.add_trace(go.Scatterpolar(
-        r=r_vals,
-        theta=theta,
-        fill='toself',
-        fillcolor='rgba(0,123,255,0.3)',
-        line=dict(color='blue', width=2),
-        marker=dict(color='blue', size=7)
+        r=r_vals, theta=theta, fill='toself',
+        fillcolor='rgba(124,58,237,0.25)',
+        line=dict(color='#a855f7', width=2),
+        marker=dict(color='#818cf8', size=7)
     ))
 
     fig_radar.update_layout(
@@ -475,8 +481,8 @@ elif "Pollutant" in view_mode:
     safe_val   = SAFE_LIMITS[focus_poll]
 
     bar_colors = [
-        "#22c55e" if v <= safe_val else
-        "#eab308" if v <= safe_val * 1.5 else "#ef4444"
+        "#34d399" if v <= safe_val else
+        "#a78bfa" if v <= safe_val * 1.5 else "#f472b6"
         for v in cmp_df[focus_poll]
     ]
     fig_hbar = go.Figure(go.Bar(
@@ -489,7 +495,7 @@ elif "Pollutant" in view_mode:
         hovertemplate="<b>%{y}</b>: %{x}<extra></extra>",
     ))
     fig_hbar.add_vline(
-        x=safe_val, line_dash="dash", line_color="#3b82f6",
+        x=safe_val, line_dash="dash", line_color="#818cf8",
         annotation_text=f"Safe limit ({safe_val} {UNITS[focus_poll]})",
         annotation_font_size=11,
     )
@@ -534,7 +540,7 @@ elif "Rankings" in view_mode:
     fig_state = px.bar(
         state_stats, x="State", y="Avg",
         color="Avg",
-        color_continuous_scale=[[0, "#22c55e"], [0.4, "#eab308"], [0.7, "#ef4444"], [1, "#8b5cf6"]],
+        color_continuous_scale=[[0, "#34d399"], [0.4, "#818cf8"], [0.7, "#f472b6"], [1, "#7c3aed"]],
         range_color=[0, 500],
         hover_data={"Max": True, "Min": True, "Cities": True},
         text=state_stats["Avg"].astype(int),
