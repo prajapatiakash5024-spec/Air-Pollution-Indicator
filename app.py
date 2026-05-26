@@ -300,7 +300,7 @@ with st.sidebar:
     chosen_theme = st.selectbox(
         "🎨 Dashboard Theme",
         list(THEMES.keys()),
-        index=0,
+        index=10,
         key="theme_choice",
     )
     apply_theme(THEMES[chosen_theme])
@@ -336,7 +336,7 @@ with st.sidebar:
 df = st.session_state.df
 
 # Dynamic AQI scale colors from theme
-_tc = THEMES[st.session_state.get("theme_choice", "🌿 Nature")]["aqi_scale"]
+_tc = THEMES[st.session_state.get("theme_choice", "🌌 Galaxy")]["aqi_scale"]
 AQI_SCALE = [
     (0,   50,  "Good",         _tc[0]),
     (51,  100, "Satisfactory", _tc[1]),
