@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image
 
+
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="India AQI Dashboard",
@@ -49,12 +50,12 @@ UNITS       = {"PM2.5": "µg/m³", "PM10": "µg/m³", "NO2": "µg/m³",
                "SO2": "µg/m³", "CO": "mg/m³", "O3": "µg/m³"}
 
 AQI_SCALE = [
-    (0,   50,  "Good",         "#f0e7ff"),
-    (51,  100, "Satisfactory", "#e0d4ff"),
-    (101, 200, "Moderate",     "#c8b6ff"),
-    (201, 300, "Poor",         "#a89bff"),
-    (301, 400, "Very Poor",    "#8b7bff"),
-    (401, 500, "Severe",       "#6c5ce7"),
+    (0,   50,  "Good",         "#22c55e"),
+    (51,  100, "Satisfactory", "#84cc16"),
+    (101, 200, "Moderate",     "#eab308"),
+    (201, 300, "Poor",         "#f97316"),
+    (301, 400, "Very Poor",    "#ef4444"),
+    (401, 500, "Severe",       "#8b5cf6"),
 ]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -62,7 +63,7 @@ def get_aqi_info(aqi):
     for lo, hi, label, color in AQI_SCALE:
         if lo <= aqi <= hi:
             return label, color
-    return "Severe", "#6c5ce7"
+    return "Severe", "#8b5cf6"
 
 def aqi_emoji(aqi):
     if aqi <= 50:  return "🟢"
@@ -187,12 +188,12 @@ if "Map" in view_mode:
                 size=dff2["size_val"],
                 color=dff2["AQI"],
                 colorscale=[
-                    [0.00, "#f0e7ff"], [0.10, "#f0e7ff"],
-                    [0.10, "#e0d4ff"], [0.20, "#e0d4ff"],
-                    [0.20, "#c8b6ff"], [0.40, "#c8b6ff"],
-                    [0.40, "#a89bff"], [0.60, "#a89bff"],
-                    [0.60, "#8b7bff"], [0.80, "#8b7bff"],
-                    [0.80, "#6c5ce7"], [1.00, "#6c5ce7"],
+                    [0.00, "#22c55e"], [0.10, "#22c55e"],
+                    [0.10, "#84cc16"], [0.20, "#84cc16"],
+                    [0.20, "#eab308"], [0.40, "#eab308"],
+                    [0.40, "#f97316"], [0.60, "#f97316"],
+                    [0.60, "#ef4444"], [0.80, "#ef4444"],
+                    [0.80, "#8b5cf6"], [1.00, "#8b5cf6"],
                 ],
                 cmin=0, cmax=500,
                 colorbar=dict(title="AQI", thickness=14, len=0.6),
@@ -390,9 +391,9 @@ elif "Pollutant" in view_mode:
         r=r_vals,
         theta=theta,
         fill='toself',
-        fillcolor='rgba(168, 155, 255, 0.3)',
-        line=dict(color='#8b7bff', width=2),
-        marker=dict(color='#8b7bff', size=7)
+        fillcolor='rgba(0,123,255,0.3)',
+        line=dict(color='blue', width=2),
+        marker=dict(color='blue', size=7)
     ))
 
     fig_radar.update_layout(
@@ -416,8 +417,8 @@ elif "Pollutant" in view_mode:
     safe_val   = SAFE_LIMITS[focus_poll]
 
     bar_colors = [
-        "#f0e7ff" if v <= safe_val else
-        "#c8b6ff" if v <= safe_val * 1.5 else "#8b7bff"
+        "#22c55e" if v <= safe_val else
+        "#eab308" if v <= safe_val * 1.5 else "#ef4444"
         for v in cmp_df[focus_poll]
     ]
     fig_hbar = go.Figure(go.Bar(
@@ -430,7 +431,7 @@ elif "Pollutant" in view_mode:
         hovertemplate="<b>%{y}</b>: %{x}<extra></extra>",
     ))
     fig_hbar.add_vline(
-        x=safe_val, line_dash="dash", line_color="#8b7bff",
+        x=safe_val, line_dash="dash", line_color="#3b82f6",
         annotation_text=f"Safe limit ({safe_val} {UNITS[focus_poll]})",
         annotation_font_size=11,
     )
@@ -475,7 +476,7 @@ elif "Rankings" in view_mode:
     fig_state = px.bar(
         state_stats, x="State", y="Avg",
         color="Avg",
-        color_continuous_scale=[[0, "#f0e7ff"], [0.4, "#c8b6ff"], [0.7, "#8b7bff"], [1, "#6c5ce7"]],
+        color_continuous_scale=[[0, "#22c55e"], [0.4, "#eab308"], [0.7, "#ef4444"], [1, "#8b5cf6"]],
         range_color=[0, 500],
         hover_data={"Max": True, "Min": True, "Cities": True},
         text=state_stats["Avg"].astype(int),
