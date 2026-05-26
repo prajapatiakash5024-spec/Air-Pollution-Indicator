@@ -6,7 +6,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image
 
-
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="India AQI Dashboard",
@@ -14,6 +13,117 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ── Theme CSS ─────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+/* ── Global background & text ── */
+.stApp {
+    background: linear-gradient(135deg, #f0f7f4 0%, #e8f5e9 100%);
+    color: #1b4332;
+}
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #1b4332 0%, #2d6a4f 100%) !important;
+}
+[data-testid="stSidebar"] * {
+    color: #d8f3dc !important;
+}
+[data-testid="stSidebar"] .stButton > button {
+    background: #52b788 !important;
+    color: #1b4332 !important;
+    border: none !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+    background: #74c69d !important;
+}
+[data-testid="stSidebar"] hr {
+    border-color: #52b788 !important;
+}
+
+/* ── Main title ── */
+h1 { color: #1b4332 !important; }
+h2, h3 { color: #2d6a4f !important; }
+
+/* ── Metric cards ── */
+[data-testid="metric-container"] {
+    background: #ffffff;
+    border: 2px solid #b7e4c7;
+    border-left: 5px solid #52b788;
+    border-radius: 12px;
+    padding: 16px 20px !important;
+    box-shadow: 0 2px 8px rgba(45,106,79,0.10);
+}
+[data-testid="metric-container"] label {
+    color: #2d6a4f !important;
+    font-weight: 600 !important;
+}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    color: #1b4332 !important;
+    font-weight: 800 !important;
+}
+[data-testid="metric-container"] [data-testid="stMetricDelta"] {
+    color: #52b788 !important;
+}
+
+/* ── Buttons ── */
+.stButton > button {
+    background: #2d6a4f !important;
+    color: #d8f3dc !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+}
+.stButton > button:hover {
+    background: #52b788 !important;
+    color: #1b4332 !important;
+}
+
+/* ── Selectbox / multiselect / slider ── */
+[data-baseweb="select"] > div {
+    border-color: #52b788 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+}
+[data-testid="stSlider"] > div > div > div {
+    background: #52b788 !important;
+}
+
+/* ── Dataframe ── */
+[data-testid="stDataFrame"] {
+    border: 2px solid #b7e4c7 !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+}
+
+/* ── Info / success / warning / error boxes ── */
+[data-testid="stAlert"] {
+    border-radius: 10px !important;
+}
+
+/* ── Divider ── */
+hr { border-color: #b7e4c7 !important; }
+
+/* ── Plotly chart border ── */
+[data-testid="stPlotlyChart"] {
+    border: 1.5px solid #b7e4c7;
+    border-radius: 12px;
+    padding: 8px;
+    background: #ffffff;
+}
+
+/* ── Progress bar ── */
+[data-testid="stProgressBar"] > div > div {
+    background: linear-gradient(90deg, #52b788, #2d6a4f) !important;
+}
+
+/* ── Caption / footer ── */
+.stCaption { color: #52b788 !important; }
+</style>
+""", unsafe_allow_html=True)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 CITIES = [
@@ -50,12 +160,12 @@ UNITS       = {"PM2.5": "µg/m³", "PM10": "µg/m³", "NO2": "µg/m³",
                "SO2": "µg/m³", "CO": "mg/m³", "O3": "µg/m³"}
 
 AQI_SCALE = [
-    (0,   50,  "Good",         "#22c55e"),
-    (51,  100, "Satisfactory", "#84cc16"),
-    (101, 200, "Moderate",     "#eab308"),
-    (201, 300, "Poor",         "#f97316"),
-    (301, 400, "Very Poor",    "#ef4444"),
-    (401, 500, "Severe",       "#8b5cf6"),
+    (0,   50,  "Good",         "#52b788"),
+    (51,  100, "Satisfactory", "#95d5b2"),
+    (101, 200, "Moderate",     "#d4a017"),
+    (201, 300, "Poor",         "#e07b39"),
+    (301, 400, "Very Poor",    "#c0392b"),
+    (401, 500, "Severe",       "#6d2b7a"),
 ]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -188,12 +298,12 @@ if "Map" in view_mode:
                 size=dff2["size_val"],
                 color=dff2["AQI"],
                 colorscale=[
-                    [0.00, "#22c55e"], [0.10, "#22c55e"],
-                    [0.10, "#84cc16"], [0.20, "#84cc16"],
-                    [0.20, "#eab308"], [0.40, "#eab308"],
-                    [0.40, "#f97316"], [0.60, "#f97316"],
-                    [0.60, "#ef4444"], [0.80, "#ef4444"],
-                    [0.80, "#8b5cf6"], [1.00, "#8b5cf6"],
+                    [0.00, "#52b788"], [0.10, "#52b788"],
+                    [0.10, "#95d5b2"], [0.20, "#95d5b2"],
+                    [0.20, "#d4a017"], [0.40, "#d4a017"],
+                    [0.40, "#e07b39"], [0.60, "#e07b39"],
+                    [0.60, "#c0392b"], [0.80, "#c0392b"],
+                    [0.80, "#6d2b7a"], [1.00, "#6d2b7a"],
                 ],
                 cmin=0, cmax=500,
                 colorbar=dict(title="AQI", thickness=14, len=0.6),
@@ -209,6 +319,8 @@ if "Map" in view_mode:
             mapbox=dict(style=map_style, center=dict(lat=22.5, lon=82.0), zoom=3.8),
             margin=dict(l=0, r=0, t=0, b=0),
             height=520,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
         )
         st.plotly_chart(fig_map, use_container_width=True)
 
@@ -301,7 +413,7 @@ elif "Trend" in view_mode:
     else:
         hours       = list(range(24))
         hour_labels = [f"{h:02d}:00" for h in hours]
-        palette     = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#8b5cf6", "#06b6d4"]
+        palette     = ["#2d6a4f", "#52b788", "#d4a017", "#e07b39", "#6d2b7a", "#40916c"]
 
         fig_line = go.Figure()
         for i, city in enumerate(selected_cities[:6]):
@@ -391,9 +503,9 @@ elif "Pollutant" in view_mode:
         r=r_vals,
         theta=theta,
         fill='toself',
-        fillcolor='rgba(0,123,255,0.3)',
-        line=dict(color='blue', width=2),
-        marker=dict(color='blue', size=7)
+        fillcolor='rgba(82,183,136,0.25)',
+        line=dict(color='#2d6a4f', width=2),
+        marker=dict(color='#52b788', size=7)
     ))
 
     fig_radar.update_layout(
@@ -417,8 +529,8 @@ elif "Pollutant" in view_mode:
     safe_val   = SAFE_LIMITS[focus_poll]
 
     bar_colors = [
-        "#22c55e" if v <= safe_val else
-        "#eab308" if v <= safe_val * 1.5 else "#ef4444"
+        "#52b788" if v <= safe_val else
+        "#d4a017" if v <= safe_val * 1.5 else "#c0392b"
         for v in cmp_df[focus_poll]
     ]
     fig_hbar = go.Figure(go.Bar(
@@ -431,7 +543,7 @@ elif "Pollutant" in view_mode:
         hovertemplate="<b>%{y}</b>: %{x}<extra></extra>",
     ))
     fig_hbar.add_vline(
-        x=safe_val, line_dash="dash", line_color="#3b82f6",
+        x=safe_val, line_dash="dash", line_color="#2d6a4f",
         annotation_text=f"Safe limit ({safe_val} {UNITS[focus_poll]})",
         annotation_font_size=11,
     )
@@ -476,7 +588,7 @@ elif "Rankings" in view_mode:
     fig_state = px.bar(
         state_stats, x="State", y="Avg",
         color="Avg",
-        color_continuous_scale=[[0, "#22c55e"], [0.4, "#eab308"], [0.7, "#ef4444"], [1, "#8b5cf6"]],
+        color_continuous_scale=[[0, "#52b788"], [0.4, "#d4a017"], [0.7, "#c0392b"], [1, "#6d2b7a"]],
         range_color=[0, 500],
         hover_data={"Max": True, "Min": True, "Cities": True},
         text=state_stats["Avg"].astype(int),
