@@ -6,7 +6,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image
 
-
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="India AQI Dashboard",
@@ -14,6 +13,132 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ── Theme Definitions ─────────────────────────────────────────────────────────
+THEMES = {
+    "🌿 Nature": {
+        "bg": "linear-gradient(135deg,#f0f7f4,#e8f5e9)",
+        "sidebar_bg": "linear-gradient(180deg,#1b4332,#2d6a4f)",
+        "sidebar_text": "#d8f3dc", "sidebar_btn": "#52b788", "sidebar_btn_text": "#1b4332",
+        "card_border": "#b7e4c7", "card_accent": "#52b788",
+        "h1": "#1b4332", "h2": "#2d6a4f", "text": "#1b4332",
+        "btn_bg": "#2d6a4f", "btn_text": "#d8f3dc", "btn_hover": "#52b788",
+        "select_border": "#52b788", "hr": "#b7e4c7",
+        "progress": "linear-gradient(90deg,#52b788,#2d6a4f)", "caption": "#52b788",
+        "aqi_scale": ["#52b788","#95d5b2","#d4a017","#e07b39","#c0392b","#6d2b7a"],
+    },
+    "🌊 Ocean Deep": {
+        "bg": "linear-gradient(135deg,#e0f7fa,#b2ebf2)",
+        "sidebar_bg": "linear-gradient(180deg,#003d4d,#006064)",
+        "sidebar_text": "#b2ebf2", "sidebar_btn": "#00bcd4", "sidebar_btn_text": "#003d4d",
+        "card_border": "#80deea", "card_accent": "#00bcd4",
+        "h1": "#003d4d", "h2": "#006064", "text": "#003d4d",
+        "btn_bg": "#006064", "btn_text": "#b2ebf2", "btn_hover": "#00bcd4",
+        "select_border": "#00bcd4", "hr": "#80deea",
+        "progress": "linear-gradient(90deg,#00bcd4,#006064)", "caption": "#00bcd4",
+        "aqi_scale": ["#00bcd4","#4dd0e1","#f4a261","#e07b39","#e63946","#7b2d8b"],
+    },
+    "🌅 Sunset Dusk": {
+        "bg": "linear-gradient(135deg,#fff3e0,#fce4ec)",
+        "sidebar_bg": "linear-gradient(180deg,#4a0e2a,#7b1fa2)",
+        "sidebar_text": "#fce4ec", "sidebar_btn": "#ff7043", "sidebar_btn_text": "#4a0e2a",
+        "card_border": "#ffccbc", "card_accent": "#ff7043",
+        "h1": "#4a0e2a", "h2": "#7b1fa2", "text": "#3e1a47",
+        "btn_bg": "#7b1fa2", "btn_text": "#fce4ec", "btn_hover": "#ff7043",
+        "select_border": "#ff7043", "hr": "#ffccbc",
+        "progress": "linear-gradient(90deg,#ff7043,#7b1fa2)", "caption": "#ff7043",
+        "aqi_scale": ["#66bb6a","#ffa726","#ff7043","#ef5350","#ab47bc","#5c6bc0"],
+    },
+    "🖤 Midnight": {
+        "bg": "linear-gradient(135deg,#0d0d0d,#1a1a2e)",
+        "sidebar_bg": "linear-gradient(180deg,#000000,#0d0d0d)",
+        "sidebar_text": "#e0e0e0", "sidebar_btn": "#3a3a5c", "sidebar_btn_text": "#e0e0e0",
+        "card_border": "#2a2a4a", "card_accent": "#5c5cff",
+        "h1": "#e0e0ff", "h2": "#9090ff", "text": "#d0d0d0",
+        "btn_bg": "#1a1a3e", "btn_text": "#e0e0ff", "btn_hover": "#5c5cff",
+        "select_border": "#5c5cff", "hr": "#2a2a4a",
+        "progress": "linear-gradient(90deg,#5c5cff,#9090ff)", "caption": "#5c5cff",
+        "aqi_scale": ["#26d7d7","#9090ff","#ffa726","#ff6090","#ff6090","#c084fc"],
+    },
+    "❄️ Arctic": {
+        "bg": "linear-gradient(135deg,#f0f4ff,#e8edf8)",
+        "sidebar_bg": "linear-gradient(180deg,#1a237e,#283593)",
+        "sidebar_text": "#e8eaf6", "sidebar_btn": "#5c6bc0", "sidebar_btn_text": "#e8eaf6",
+        "card_border": "#c5cae9", "card_accent": "#3f51b5",
+        "h1": "#1a237e", "h2": "#283593", "text": "#1a237e",
+        "btn_bg": "#283593", "btn_text": "#e8eaf6", "btn_hover": "#5c6bc0",
+        "select_border": "#3f51b5", "hr": "#c5cae9",
+        "progress": "linear-gradient(90deg,#5c6bc0,#3f51b5)", "caption": "#5c6bc0",
+        "aqi_scale": ["#26c6da","#42a5f5","#ffa726","#ef5350","#e53935","#8e24aa"],
+    },
+    "🔥 Volcano": {
+        "bg": "linear-gradient(135deg,#1c1c1c,#2d1b00)",
+        "sidebar_bg": "linear-gradient(180deg,#1c0000,#3e0000)",
+        "sidebar_text": "#ffccbc", "sidebar_btn": "#ff5722", "sidebar_btn_text": "#1c0000",
+        "card_border": "#6d2121", "card_accent": "#ff5722",
+        "h1": "#ff8a65", "h2": "#ff7043", "text": "#ffccbc",
+        "btn_bg": "#3e0000", "btn_text": "#ffccbc", "btn_hover": "#ff5722",
+        "select_border": "#ff5722", "hr": "#6d2121",
+        "progress": "linear-gradient(90deg,#ff5722,#bf360c)", "caption": "#ff5722",
+        "aqi_scale": ["#ffa726","#ffee58","#ff7043","#ef5350","#b71c1c","#6d4c41"],
+    },
+    "🌸 Blossom": {
+        "bg": "linear-gradient(135deg,#fce4ec,#f3e5f5)",
+        "sidebar_bg": "linear-gradient(180deg,#880e4f,#ad1457)",
+        "sidebar_text": "#fce4ec", "sidebar_btn": "#f06292", "sidebar_btn_text": "#880e4f",
+        "card_border": "#f8bbd0", "card_accent": "#e91e63",
+        "h1": "#880e4f", "h2": "#ad1457", "text": "#560027",
+        "btn_bg": "#ad1457", "btn_text": "#fce4ec", "btn_hover": "#f06292",
+        "select_border": "#e91e63", "hr": "#f8bbd0",
+        "progress": "linear-gradient(90deg,#f06292,#ad1457)", "caption": "#e91e63",
+        "aqi_scale": ["#66bb6a","#f06292","#ab47bc","#ef5350","#e91e63","#7e57c2"],
+    },
+    "🏜️ Desert Sand": {
+        "bg": "linear-gradient(135deg,#fdf6e3,#f5e6d0)",
+        "sidebar_bg": "linear-gradient(180deg,#5d3a1a,#8b5e3c)",
+        "sidebar_text": "#fdf6e3", "sidebar_btn": "#d4864a", "sidebar_btn_text": "#3e1f00",
+        "card_border": "#e8c99a", "card_accent": "#c0783c",
+        "h1": "#5d3a1a", "h2": "#8b5e3c", "text": "#3e2000",
+        "btn_bg": "#8b5e3c", "btn_text": "#fdf6e3", "btn_hover": "#d4864a",
+        "select_border": "#c0783c", "hr": "#e8c99a",
+        "progress": "linear-gradient(90deg,#d4864a,#8b5e3c)", "caption": "#c0783c",
+        "aqi_scale": ["#66bb6a","#e8a87c","#d4a017","#c0783c","#b7472a","#8b5e3c"],
+    },
+    "💜 Nebula": {
+        "bg": "linear-gradient(135deg,#1a0533,#2d1b55)",
+        "sidebar_bg": "linear-gradient(180deg,#0d001a,#1a0533)",
+        "sidebar_text": "#e9d5ff", "sidebar_btn": "#7c3aed", "sidebar_btn_text": "#e9d5ff",
+        "card_border": "#4c1d95", "card_accent": "#8b5cf6",
+        "h1": "#c4b5fd", "h2": "#a78bfa", "text": "#e9d5ff",
+        "btn_bg": "#2d1b55", "btn_text": "#e9d5ff", "btn_hover": "#7c3aed",
+        "select_border": "#7c3aed", "hr": "#4c1d95",
+        "progress": "linear-gradient(90deg,#7c3aed,#8b5cf6)", "caption": "#8b5cf6",
+        "aqi_scale": ["#34d399","#a78bfa","#e879f9","#f97316","#ef4444","#8b5cf6"],
+    },
+}
+
+def apply_theme(t):
+    st.markdown(f"""
+<style>
+.stApp {{background:{t["bg"]};color:{t["text"]};}}
+[data-testid="stSidebar"]{{background:{t["sidebar_bg"]} !important;}}
+[data-testid="stSidebar"] *{{color:{t["sidebar_text"]} !important;}}
+[data-testid="stSidebar"] .stButton>button{{background:{t["sidebar_btn"]} !important;color:{t["sidebar_btn_text"]} !important;border:none !important;font-weight:700 !important;border-radius:8px !important;}}
+[data-testid="stSidebar"] hr{{border-color:{t["sidebar_btn"]} !important;}}
+h1{{color:{t["h1"]} !important;}}
+h2,h3{{color:{t["h2"]} !important;}}
+[data-testid="metric-container"]{{background:rgba(255,255,255,0.08);border:2px solid {t["card_border"]};border-left:5px solid {t["card_accent"]};border-radius:12px;padding:16px 20px !important;box-shadow:0 2px 12px rgba(0,0,0,0.12);}}
+[data-testid="metric-container"] label{{color:{t["h2"]} !important;font-weight:600 !important;}}
+[data-testid="metric-container"] [data-testid="stMetricValue"]{{color:{t["h1"]} !important;font-weight:800 !important;}}
+[data-testid="metric-container"] [data-testid="stMetricDelta"]{{color:{t["card_accent"]} !important;}}
+.stButton>button{{background:{t["btn_bg"]} !important;color:{t["btn_text"]} !important;border:none !important;border-radius:8px !important;font-weight:600 !important;}}
+.stButton>button:hover{{background:{t["btn_hover"]} !important;}}
+[data-baseweb="select"]>div{{border-color:{t["select_border"]} !important;border-radius:8px !important;}}
+hr{{border-color:{t["hr"]} !important;}}
+[data-testid="stPlotlyChart"]{{border:1.5px solid {t["card_border"]};border-radius:12px;padding:8px;background:rgba(255,255,255,0.05);}}
+[data-testid="stProgressBar"]>div>div{{background:{t["progress"]} !important;}}
+.stCaption{{color:{t["caption"]} !important;}}
+</style>""", unsafe_allow_html=True)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 CITIES = [
@@ -106,6 +231,16 @@ with st.sidebar:
     st.title("🌍 India AQI Monitor")
     st.divider()
 
+    chosen_theme = st.selectbox(
+        "🎨 Dashboard Theme",
+        list(THEMES.keys()),
+        index=0,
+        key="theme_choice",
+    )
+    apply_theme(THEMES[chosen_theme])
+
+    st.divider()
+
     if st.button("🔄 Refresh Data", use_container_width=True):
         st.session_state.df = generate_data()
         st.rerun()
@@ -133,6 +268,17 @@ with st.sidebar:
         st.markdown(f"{aqi_emoji((lo+hi)//2)} **{lo}–{hi}** — {label}")
 
 df = st.session_state.df
+
+# Dynamic AQI scale colors from theme
+_tc = THEMES[st.session_state.get("theme_choice", "🌿 Nature")]["aqi_scale"]
+AQI_SCALE = [
+    (0,   50,  "Good",         _tc[0]),
+    (51,  100, "Satisfactory", _tc[1]),
+    (101, 200, "Moderate",     _tc[2]),
+    (201, 300, "Poor",         _tc[3]),
+    (301, 400, "Very Poor",    _tc[4]),
+    (401, 500, "Severe",       _tc[5]),
+]
 
 # Apply filters
 dff = df[(df["AQI"] >= aqi_range[0]) & (df["AQI"] <= aqi_range[1])]
