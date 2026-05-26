@@ -7,3 +7,6 @@ plotly
 Pillow
 geopandas
 matplotlib
+git add .
+git commit -m "fixed radar chart error"
+git push
