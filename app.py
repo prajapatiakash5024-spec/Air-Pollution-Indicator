@@ -388,44 +388,14 @@ elif "Pollutant" in view_mode:
     with col_radar:
         st.subheader("🕸️ Radar Overview")
         pct_vals = [min(row[p] / (SAFE_LIMITS[p] * 2) * 100, 100) for p in POLLUTANTS]
-        fig_radar = go.Figure(
-    go.Scatterpolar(
-        r=pct_vals + [pct_vals[0]],
-        theta=POLLUTANTS + [POLLUTANTS[0]],
-
-        fill="toself",
-
-        fillcolor="rgba(59,130,246,0.25)",
-
-        line=dict(
-            color=color,
-            width=3
-        ),
-
-        marker=dict(
-            size=8,
-            color=color
-        )
-    )
-)
-
-fig_radar.update_layout(
-    polar=dict(
-        radialaxis=dict(
-            visible=True,
-            range=[0,100]
-        )
-    ),
-
-    height=340,
-
-    margin=dict(
-        l=40,
-        r=40,
-        t=20,
-        b=20
-    )
-)
+         fig_radar = go.Figure(go.Scatterpolar(
+            r=pct_vals + [pct_vals[0]],
+            theta=POLLUTANTS + [POLLUTANTS[0]],
+            fill="toself",
+            fillcolor=color + "40",
+            line=dict(color=color, width=2.5),
+            marker=dict(color=color, size=7),
+        ))
         fig_radar.update_layout(
             polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
             height=340,
