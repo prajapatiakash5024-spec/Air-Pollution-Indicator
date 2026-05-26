@@ -6,20 +6,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image
 
-# ══════════════════════════════════════════════════════════════
-#  PURPLE × BLACK × LIGHT  COLOR PALETTE
-#  BG_DARK    = #0d0d1a   (near-black background)
-#  BG_CARD    = #1a1a2e   (card / sidebar background)
-#  BG_PANEL   = #16213e   (panel / section background)
-#  PURPLE_1   = #7c3aed   (primary purple)
-#  PURPLE_2   = #a855f7   (medium purple)
-#  PURPLE_3   = #c084fc   (light purple / accent)
-#  LAVENDER   = #e9d5ff   (very light purple text)
-#  WHITE      = #f8f8ff   (ghost white)
-#  GRAY_LIGHT = #94a3b8   (muted text)
-# ══════════════════════════════════════════════════════════════
 
-# ── Page Config ───────────────────────────────────────────────
+# ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="India AQI Dashboard",
     page_icon="🌍",
@@ -27,107 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Global CSS — Purple × Black Theme ─────────────────────────
-st.markdown("""
-<style>
-/* ── Root background ── */
-html, body, [data-testid="stAppViewContainer"] {
-    background-color: #0d0d1a !important;
-    color: #f8f8ff !important;
-}
-
-/* ── Main content area ── */
-[data-testid="stMain"], .main .block-container {
-    background-color: #0d0d1a !important;
-    padding-top: 1.5rem;
-}
-
-/* ── Sidebar ── */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%) !important;
-    border-right: 1px solid #7c3aed44 !important;
-}
-[data-testid="stSidebar"] * { color: #e9d5ff !important; }
-[data-testid="stSidebar"] .stButton > button {
-    background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-}
-[data-testid="stSidebar"] .stButton > button:hover {
-    background: linear-gradient(135deg, #6d28d9, #9333ea) !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 15px #7c3aed66 !important;
-}
-
-/* ── Metric cards ── */
-[data-testid="stMetric"] {
-    background: linear-gradient(135deg, #1a1a2e, #16213e) !important;
-    border: 1px solid #7c3aed55 !important;
-    border-radius: 12px !important;
-    padding: 1rem 1.2rem !important;
-    box-shadow: 0 4px 20px #7c3aed22 !important;
-}
-[data-testid="stMetricLabel"] { color: #c084fc !important; font-size: 0.82rem !important; }
-[data-testid="stMetricValue"] { color: #f8f8ff !important; font-weight: 700 !important; }
-[data-testid="stMetricDelta"] { color: #a855f7 !important; }
-
-/* ── Title / headers ── */
-h1 { color: #c084fc !important; letter-spacing: 0.5px; }
-h2, h3 { color: #a855f7 !important; }
-
-/* ── Dividers ── */
-hr { border-color: #7c3aed44 !important; }
-
-/* ── Dataframe / table ── */
-[data-testid="stDataFrame"] {
-    background-color: #1a1a2e !important;
-    border: 1px solid #7c3aed33 !important;
-    border-radius: 10px !important;
-}
-
-/* ── Selectbox / multiselect / slider ── */
-[data-testid="stSelectbox"] > div,
-[data-testid="stMultiSelect"] > div {
-    background-color: #16213e !important;
-    border: 1px solid #7c3aed66 !important;
-    border-radius: 8px !important;
-    color: #e9d5ff !important;
-}
-.stSlider [data-testid="stSliderThumb"] { background-color: #a855f7 !important; }
-.stSlider div[data-baseweb="slider"] div { background-color: #7c3aed !important; }
-
-/* ── Radio buttons ── */
-[data-testid="stRadio"] label { color: #e9d5ff !important; }
-[data-testid="stRadio"] [data-testid="stWidgetLabel"] { color: #c084fc !important; font-weight: 600 !important; }
-
-/* ── Progress bar ── */
-[data-testid="stProgressBar"] > div { background-color: #1a1a2e !important; border-radius: 6px; }
-[data-testid="stProgressBar"] > div > div {
-    background: linear-gradient(90deg, #7c3aed, #c084fc) !important;
-    border-radius: 6px;
-}
-
-/* ── Info / success / warning / error boxes ── */
-[data-testid="stAlert"] { border-radius: 10px !important; border-left-width: 4px !important; }
-
-/* ── File uploader ── */
-[data-testid="stFileUploader"] {
-    background-color: #16213e !important;
-    border: 2px dashed #7c3aed !important;
-    border-radius: 12px !important;
-}
-
-/* ── Caption / footer ── */
-[data-testid="stCaptionContainer"] { color: #94a3b8 !important; }
-
-/* ── Plotly chart bg override ── */
-.js-plotly-plot .plotly { background: transparent !important; }
-</style>
-""", unsafe_allow_html=True)
-
-# ── Constants ─────────────────────────────────────────────────
+# ── Constants ─────────────────────────────────────────────────────────────────
 CITIES = [
     {"name": "Delhi",         "lat": 28.61, "lon": 77.20, "state": "Delhi"},
     {"name": "Mumbai",        "lat": 19.07, "lon": 72.87, "state": "Maharashtra"},
@@ -161,48 +49,21 @@ SAFE_LIMITS = {"PM2.5": 60, "PM10": 100, "NO2": 80, "SO2": 80, "CO": 2.0, "O3": 
 UNITS       = {"PM2.5": "µg/m³", "PM10": "µg/m³", "NO2": "µg/m³",
                "SO2": "µg/m³", "CO": "mg/m³", "O3": "µg/m³"}
 
-# Purple-themed AQI scale
 AQI_SCALE = [
     (0,   50,  "Good",         "#22c55e"),
     (51,  100, "Satisfactory", "#84cc16"),
     (101, 200, "Moderate",     "#eab308"),
     (201, 300, "Poor",         "#f97316"),
     (301, 400, "Very Poor",    "#ef4444"),
-    (401, 500, "Severe",       "#c084fc"),
+    (401, 500, "Severe",       "#8b5cf6"),
 ]
 
-# Purple palette for Plotly charts
-PURPLE_PLOTLY = dict(
-    bg        = "#0d0d1a",
-    paper     = "#1a1a2e",
-    gridcolor = "#7c3aed22",
-    textcolor = "#e9d5ff",
-    linecolor = "#7c3aed44",
-    accent1   = "#7c3aed",
-    accent2   = "#a855f7",
-    accent3   = "#c084fc",
-)
-
-def purple_layout(**extra):
-    """Base Plotly layout with purple × dark theme."""
-    base = dict(
-        paper_bgcolor = PURPLE_PLOTLY["paper"],
-        plot_bgcolor  = PURPLE_PLOTLY["bg"],
-        font          = dict(color=PURPLE_PLOTLY["textcolor"], family="Inter, sans-serif"),
-        xaxis         = dict(gridcolor=PURPLE_PLOTLY["gridcolor"], linecolor=PURPLE_PLOTLY["linecolor"],
-                             zerolinecolor=PURPLE_PLOTLY["linecolor"]),
-        yaxis         = dict(gridcolor=PURPLE_PLOTLY["gridcolor"], linecolor=PURPLE_PLOTLY["linecolor"],
-                             zerolinecolor=PURPLE_PLOTLY["linecolor"]),
-    )
-    base.update(extra)
-    return base
-
-# ── Helpers ───────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def get_aqi_info(aqi):
     for lo, hi, label, color in AQI_SCALE:
         if lo <= aqi <= hi:
             return label, color
-    return "Severe", "#c084fc"
+    return "Severe", "#8b5cf6"
 
 def aqi_emoji(aqi):
     if aqi <= 50:  return "🟢"
@@ -236,13 +97,13 @@ def pollutant_status(val, safe):
     if val <= safe * 1.5: return "⚠️ Moderate"
     return "🚨 Unsafe"
 
-# ── Session state ─────────────────────────────────────────────
+# ── Session state ─────────────────────────────────────────────────────────────
 if "df" not in st.session_state:
     st.session_state.df = generate_data()
 
-# ── Sidebar ───────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🌍 India AQI Monitor")
+    st.title("🌍 India AQI Monitor")
     st.divider()
 
     if st.button("🔄 Refresh Data", use_container_width=True):
@@ -261,13 +122,13 @@ with st.sidebar:
     )
 
     st.divider()
-    st.markdown("### 🔍 Filters")
+    st.subheader("🔍 Filters")
     aqi_range = st.slider("AQI Range", 0, 500, (0, 500))
     all_states = sorted(st.session_state.df["State"].unique())
     selected_states = st.multiselect("Filter by State", all_states)
 
     st.divider()
-    st.markdown("### 📋 AQI Legend")
+    st.subheader("📋 AQI Legend")
     for lo, hi, label, color in AQI_SCALE:
         st.markdown(f"{aqi_emoji((lo+hi)//2)} **{lo}–{hi}** — {label}")
 
@@ -278,12 +139,12 @@ dff = df[(df["AQI"] >= aqi_range[0]) & (df["AQI"] <= aqi_range[1])]
 if selected_states:
     dff = dff[dff["State"].isin(selected_states)]
 
-# ── Header ────────────────────────────────────────────────────
-st.markdown("# 🌍 India Air Quality Index Dashboard")
+# ── Header ────────────────────────────────────────────────────────────────────
+st.title("🌍 India Air Quality Index Dashboard")
 st.caption("Simulated AQI sensor data across 25 major Indian cities · Refresh for new readings")
 st.divider()
 
-# ── Top Metrics ───────────────────────────────────────────────
+# ── Top Metrics ───────────────────────────────────────────────────────────────
 avg_aqi   = int(df["AQI"].mean())
 worst     = df.loc[df["AQI"].idxmax()]
 best      = df.loc[df["AQI"].idxmin()]
@@ -298,9 +159,9 @@ c4.metric("⚠️ High Risk Cities",  dangerous,     "AQI > 200")
 
 st.divider()
 
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # VIEW 1 — POLLUTION MAP
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 if "Map" in view_mode:
     col_left, col_right = st.columns([3, 1])
 
@@ -332,13 +193,11 @@ if "Map" in view_mode:
                     [0.20, "#eab308"], [0.40, "#eab308"],
                     [0.40, "#f97316"], [0.60, "#f97316"],
                     [0.60, "#ef4444"], [0.80, "#ef4444"],
-                    [0.80, "#c084fc"], [1.00, "#c084fc"],
+                    [0.80, "#8b5cf6"], [1.00, "#8b5cf6"],
                 ],
                 cmin=0, cmax=500,
-                colorbar=dict(title="AQI", thickness=14, len=0.6,
-                              tickfont=dict(color="#e9d5ff"),
-                              titlefont=dict(color="#c084fc")),
-                opacity=0.9,
+                colorbar=dict(title="AQI", thickness=14, len=0.6),
+                opacity=0.85,
             ),
             text=dff2[map_metric].round(0).astype(int).astype(str),
             textfont=dict(size=9, color="white"),
@@ -350,7 +209,6 @@ if "Map" in view_mode:
             mapbox=dict(style=map_style, center=dict(lat=22.5, lon=82.0), zoom=3.8),
             margin=dict(l=0, r=0, t=0, b=0),
             height=520,
-            paper_bgcolor="#1a1a2e",
         )
         st.plotly_chart(fig_map, use_container_width=True)
 
@@ -371,14 +229,14 @@ if "Map" in view_mode:
     ).reset_index(drop=True)
     show_df.index += 1
     st.dataframe(
-        show_df.style.background_gradient(subset=["AQI"], cmap="Purples"),
+        show_df.style.background_gradient(subset=["AQI"], cmap="RdYlGn_r"),
         use_container_width=True,
         height=320,
     )
 
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # VIEW 2 — CITY COMPARISON
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 elif "Comparison" in view_mode:
     st.subheader("📊 City AQI Comparison")
 
@@ -390,34 +248,21 @@ elif "Comparison" in view_mode:
 
     sorted_df = dff.sort_values(sort_by, ascending=False).head(top_n)
 
-    # Purple gradient bar colors based on AQI value
-    bar_colors = [
-        f"rgba({int(124 + (r['AQI']/500)*80)}, {int(58 - (r['AQI']/500)*30)}, "
-        f"{int(237 - (r['AQI']/500)*50)}, 0.85)"
-        for _, r in sorted_df.iterrows()
-    ]
-
     fig_bar = go.Figure(go.Bar(
         x=sorted_df["City"],
         y=sorted_df[sort_by],
-        marker_color=bar_colors,
-        marker_line_color="#c084fc",
-        marker_line_width=0.5,
+        marker_color=sorted_df["Color"],
+        marker_line_width=0,
         text=sorted_df[sort_by].round(1),
         textposition="outside",
-        textfont=dict(color="#e9d5ff"),
         hovertemplate="<b>%{x}</b><br>" + sort_by + ": %{y}<extra></extra>",
     ))
     unit = UNITS.get(sort_by, "")
     fig_bar.update_layout(
-        **purple_layout(
-            xaxis=dict(tickangle=-38, title="City",
-                       gridcolor="#7c3aed22", tickfont=dict(color="#e9d5ff")),
-            yaxis=dict(title=f"{sort_by} ({unit})" if unit else sort_by,
-                       gridcolor="#7c3aed22", tickfont=dict(color="#e9d5ff")),
-            height=420,
-            margin=dict(l=60, r=20, t=30, b=100),
-        )
+        xaxis=dict(tickangle=-38, title="City"),
+        yaxis=dict(title=f"{sort_by} ({unit})" if unit else sort_by),
+        height=420,
+        margin=dict(l=60, r=20, t=30, b=100),
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -431,18 +276,15 @@ elif "Comparison" in view_mode:
         labels=cat_counts.index,
         values=cat_counts.values,
         marker_colors=cat_colors,
-        hole=0.5,
+        hole=0.45,
         hovertemplate="<b>%{label}</b><br>Cities: %{value} (%{percent})<extra></extra>",
     ))
-    fig_pie.update_layout(
-        **purple_layout(height=340, margin=dict(l=0, r=0, t=20, b=0)),
-        legend=dict(font=dict(color="#e9d5ff"))
-    )
+    fig_pie.update_layout(height=320, margin=dict(l=0, r=0, t=20, b=0))
     st.plotly_chart(fig_pie, use_container_width=True)
 
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # VIEW 3 — HOURLY TREND
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 elif "Trend" in view_mode:
     st.subheader("📈 24-Hour AQI Trend")
 
@@ -459,8 +301,7 @@ elif "Trend" in view_mode:
     else:
         hours       = list(range(24))
         hour_labels = [f"{h:02d}:00" for h in hours]
-        # Purple-themed palette
-        palette = ["#c084fc", "#a855f7", "#7c3aed", "#e9d5ff", "#6d28d9", "#ddd6fe"]
+        palette     = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#8b5cf6", "#06b6d4"]
 
         fig_line = go.Figure()
         for i, city in enumerate(selected_cities[:6]):
@@ -484,32 +325,27 @@ elif "Trend" in view_mode:
 
         for threshold, lbl in [(200, "Poor threshold"), (300, "Very Poor threshold")]:
             fig_line.add_hline(
-                y=threshold, line_dash="dot", line_color="#c084fc66", opacity=0.6,
+                y=threshold, line_dash="dot", line_color="#9ca3af", opacity=0.5,
                 annotation_text=lbl, annotation_font_size=11,
-                annotation_font_color="#c084fc",
             )
 
         fig_line.update_layout(
-            **purple_layout(
-                xaxis=dict(title="Hour", tickangle=-45,
-                           gridcolor="#7c3aed22", tickfont=dict(color="#e9d5ff")),
-                yaxis=dict(title="AQI", range=[0, 520],
-                           gridcolor="#7c3aed22", tickfont=dict(color="#e9d5ff")),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                            font=dict(color="#e9d5ff")),
-                height=430,
-                margin=dict(l=60, r=20, t=60, b=80),
-            )
+            xaxis=dict(title="Hour", tickangle=-45),
+            yaxis=dict(title="AQI", range=[0, 520]),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            height=430,
+            margin=dict(l=60, r=20, t=60, b=80),
         )
         st.plotly_chart(fig_line, use_container_width=True)
         st.info(
             "💡 The trend is simulated using a sine-wave diurnal pattern "
-            "(peaks around 6 AM and 6 PM) plus random noise."
+            "(peaks around 6 AM and 6 PM) plus random noise. "
+            "Connect a live API for real hourly data."
         )
 
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # VIEW 4 — POLLUTANT BREAKDOWN
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 elif "Pollutant" in view_mode:
     st.subheader("🧪 Pollutant Breakdown")
 
@@ -523,6 +359,7 @@ elif "Pollutant" in view_mode:
     c3.metric("📍 Primary", max(POLLUTANTS, key=lambda p: row[p] / SAFE_LIMITS[p]), "highest vs safe")
 
     st.divider()
+
     col_bars, col_radar = st.columns(2)
 
     with col_bars:
@@ -533,35 +370,45 @@ elif "Pollutant" in view_mode:
             pct    = min(val / (safe * 3), 1.0)
             status = pollutant_status(val, safe)
             st.write(f"**{p}** — {val} {UNITS[p]}   {status}   *(safe ≤ {safe})*")
-            st.progress(float(pct))
+            st.progress(float(pct))   # FIX: cast to float explicitly
+
+ 
 
     with col_radar:
         st.subheader("🕸️ Radar Overview")
-        pct_vals = [float(min(row[p] / (SAFE_LIMITS[p] * 2) * 100, 100)) for p in POLLUTANTS]
-        theta    = POLLUTANTS + [POLLUTANTS[0]]
-        r_vals   = pct_vals + [pct_vals[0]]
 
-        fig_radar = go.Figure(go.Scatterpolar(
-            r=r_vals,
-            theta=theta,
-            fill="toself",
-            fillcolor="rgba(168,85,247,0.25)",
-            line=dict(color="#a855f7", width=2.5),
-            marker=dict(color="#c084fc", size=7),
-        ))
-        fig_radar.update_layout(
-            polar=dict(
-                bgcolor="#16213e",
-                radialaxis=dict(visible=True, range=[0, 100],
-                                gridcolor="#7c3aed44", tickfont=dict(color="#c084fc")),
-                angularaxis=dict(gridcolor="#7c3aed44", tickfont=dict(color="#e9d5ff")),
-            ),
-            paper_bgcolor="#1a1a2e",
-            font=dict(color="#e9d5ff"),
-            height=340,
-            margin=dict(l=40, r=40, t=20, b=20),
-        )
-        st.plotly_chart(fig_radar, use_container_width=True)
+    pct_vals = [
+        float(min(row[p] / (SAFE_LIMITS[p] * 2) * 100, 100))
+        for p in POLLUTANTS
+    ]
+
+    theta = POLLUTANTS + [POLLUTANTS[0]]
+    r_vals = pct_vals + [pct_vals[0]]
+
+    fig_radar = go.Figure()
+
+    fig_radar.add_trace(go.Scatterpolar(
+        r=r_vals,
+        theta=theta,
+        fill='toself',
+        fillcolor='rgba(0,123,255,0.3)',
+        line=dict(color='blue', width=2),
+        marker=dict(color='blue', size=7)
+    ))
+
+    fig_radar.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100]
+            )
+        ),
+        showlegend=False,
+        height=340,
+        margin=dict(l=40, r=40, t=20, b=20),
+    )
+
+    st.plotly_chart(fig_radar, use_container_width=True)
 
     st.divider()
     st.subheader("🔍 Compare All Cities — Single Pollutant")
@@ -571,7 +418,7 @@ elif "Pollutant" in view_mode:
 
     bar_colors = [
         "#22c55e" if v <= safe_val else
-        "#eab308" if v <= safe_val * 1.5 else "#a855f7"
+        "#eab308" if v <= safe_val * 1.5 else "#ef4444"
         for v in cmp_df[focus_poll]
     ]
     fig_hbar = go.Figure(go.Bar(
@@ -581,29 +428,24 @@ elif "Pollutant" in view_mode:
         marker_line_width=0,
         text=cmp_df[focus_poll].astype(str) + f" {UNITS[focus_poll]}",
         textposition="outside",
-        textfont=dict(color="#e9d5ff"),
         hovertemplate="<b>%{y}</b>: %{x}<extra></extra>",
     ))
     fig_hbar.add_vline(
-        x=safe_val, line_dash="dash", line_color="#c084fc",
+        x=safe_val, line_dash="dash", line_color="#3b82f6",
         annotation_text=f"Safe limit ({safe_val} {UNITS[focus_poll]})",
         annotation_font_size=11,
-        annotation_font_color="#c084fc",
     )
     fig_hbar.update_layout(
-        **purple_layout(
-            xaxis=dict(title=UNITS[focus_poll], gridcolor="#7c3aed22",
-                       tickfont=dict(color="#e9d5ff")),
-            yaxis=dict(showgrid=False, tickfont=dict(color="#e9d5ff")),
-            height=560,
-            margin=dict(l=120, r=80, t=20, b=40),
-        )
+        xaxis=dict(title=UNITS[focus_poll]),
+        yaxis=dict(showgrid=False),
+        height=560,
+        margin=dict(l=120, r=80, t=20, b=40),
     )
     st.plotly_chart(fig_hbar, use_container_width=True)
 
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # VIEW 5 — RANKINGS & STATS
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 elif "Rankings" in view_mode:
     st.subheader("🏆 Rankings & Statistics")
 
@@ -634,44 +476,38 @@ elif "Rankings" in view_mode:
     fig_state = px.bar(
         state_stats, x="State", y="Avg",
         color="Avg",
-        color_continuous_scale=[[0, "#22c55e"], [0.4, "#eab308"], [0.7, "#a855f7"], [1, "#c084fc"]],
+        color_continuous_scale=[[0, "#22c55e"], [0.4, "#eab308"], [0.7, "#ef4444"], [1, "#8b5cf6"]],
         range_color=[0, 500],
         hover_data={"Max": True, "Min": True, "Cities": True},
         text=state_stats["Avg"].astype(int),
         labels={"Avg": "Average AQI"},
     )
     fig_state.update_layout(
-        **purple_layout(
-            coloraxis_showscale=False,
-            xaxis=dict(tickangle=-35, gridcolor="#7c3aed22", tickfont=dict(color="#e9d5ff")),
-            yaxis=dict(gridcolor="#7c3aed22", tickfont=dict(color="#e9d5ff")),
-            height=380,
-            margin=dict(l=60, r=20, t=20, b=100),
-        )
+        coloraxis_showscale=False,
+        xaxis=dict(tickangle=-35),
+        height=380,
+        margin=dict(l=60, r=20, t=20, b=100),
     )
-    fig_state.update_traces(textposition="outside", textfont_color="#e9d5ff")
+    fig_state.update_traces(textposition="outside")
     st.plotly_chart(fig_state, use_container_width=True)
 
     st.divider()
     st.subheader("🔗 Pollutant Correlation Heatmap")
-    corr     = df[["AQI"] + POLLUTANTS].corr().round(2)
+    corr    = df[["AQI"] + POLLUTANTS].corr().round(2)
     fig_heat = go.Figure(go.Heatmap(
         z=corr.values, x=list(corr.columns), y=list(corr.index),
-        colorscale=[[0, "#0d0d1a"], [0.5, "#7c3aed"], [1, "#c084fc"]],
-        zmin=-1, zmax=1,
+        colorscale="RdYlGn", zmin=-1, zmax=1,
         text=corr.values.round(2),
         texttemplate="%{text}",
-        textfont=dict(size=12, color="#e9d5ff"),
+        textfont=dict(size=12),
         hovertemplate="%{x} × %{y}: %{z}<extra></extra>",
     ))
-    fig_heat.update_layout(
-        **purple_layout(height=340, margin=dict(l=80, r=20, t=20, b=60))
-    )
+    fig_heat.update_layout(height=340, margin=dict(l=80, r=20, t=20, b=60))
     st.plotly_chart(fig_heat, use_container_width=True)
 
-# ═══════════════════════════════════════════════════════════════
-# VIEW 6 — IMAGE PREDICTOR
-# ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
+# VIEW 6 — IMAGE PREDICTOR  (merged from app.py / app_.py)
+# ═══════════════════════════════════════════════════════════════════════════════
 elif "Image" in view_mode:
     st.subheader("📸 Image-Based Air Quality Predictor")
     st.write("Upload an image and get a simulated air quality prediction.")
@@ -682,7 +518,7 @@ elif "Image" in view_mode:
         img = Image.open(uploaded_file)
         st.image(img, caption="Uploaded Image", use_container_width=True)
 
-        if st.button("🔍 Predict Air Quality"):
+        if st.button("Predict"):
             pollution = random.randint(1, 100)
 
             if pollution <= 20:
@@ -703,6 +539,8 @@ elif "Image" in view_mode:
 
             st.subheader("Prediction Result")
             st.metric("Pollution Percentage", f"{pollution}%")
+
+            # FIX: st.progress() requires float 0.0–1.0
             st.progress(pollution / 100)
 
             st.subheader("Health Status")
@@ -730,10 +568,10 @@ elif "Image" in view_mode:
 | 🚨    | Very Unhealthy | 81 – 100%  |
 """)
 
-# ── Footer ────────────────────────────────────────────────────
+# ── Footer ────────────────────────────────────────────────────────────────────
 st.divider()
 st.caption(
     "📡 Data is simulated · "
     "For live readings connect to CPCB API or WAQI (aqicn.org/api) · "
-    "Built with Streamlit + Plotly  |  🎨 Purple × Black Theme"
+    "Built with Streamlit + Plotly"
 )
