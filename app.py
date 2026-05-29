@@ -401,8 +401,16 @@ def run_streamlit():
         show_df = dff[["City","State","AQI","Category","PM2.5","PM10","NO2","O3"]]\
             .sort_values("AQI", ascending=False).reset_index(drop=True)
         show_df.index += 1
-        st.dataframe(show_df.style.background_gradient(
-            subset=["AQI"], cmap="RdYlGn_r"), use_container_width=True, height=320)
+        def color_aqi(val):
+            col = aqi_color(int(val))
+            # Convert hex to rgba for cell background
+            r = int(col[1:3], 16)
+            g = int(col[3:5], 16)
+            b = int(col[5:7], 16)
+            return f"background-color: rgba({r},{g},{b},0.25); color: {col}; font-weight: 600"
+
+        styled = show_df.style.applymap(color_aqi, subset=["AQI"])
+        st.dataframe(styled, use_container_width=True, height=320)
 
     # ══ VIEW 2 — COMPARISON ══
     elif "Comparison" in view_mode:
