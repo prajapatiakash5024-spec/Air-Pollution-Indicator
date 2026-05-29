@@ -421,8 +421,8 @@ elif "Map" in view_mode:
                             [0.20,"#ffb800"],[0.40,"#ffb800"],[0.40,"#ff6600"],[0.60,"#ff6600"],
                             [0.60,"#ff3366"],[0.80,"#ff3366"],[0.80,"#b44dff"],[1.00,"#b44dff"]],
                 cmin=0,cmax=500,opacity=0.9,
-                colorbar=dict(title="AQI",thickness=12,len=0.6,
-                              tickfont=dict(color="#e0f4ff"),titlefont=dict(color="#e0f4ff"))),
+                colorbar=dict(title=dict(text="AQI",font=dict(color="#e0f4ff")),thickness=12,len=0.6,
+                              tickfont=dict(color="#e0f4ff"))),
             text=dff2[map_metric].round(0).astype(int).astype(str),
             textfont=dict(size=9,color="white"),textposition="middle center",
             hovertext=dff2["label"],hoverinfo="text"))
