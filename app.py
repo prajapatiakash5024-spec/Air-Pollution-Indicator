@@ -113,12 +113,14 @@ HEALTH_TIPS = {
 AXIS_STYLE = dict(gridcolor="rgba(0,245,255,0.08)",linecolor="rgba(0,245,255,0.2)",tickfont=dict(color="#6a8fad"))
 
 def apply_theme(fig, height=400, margin=None, **kwargs):
-    m = margin or dict(l=60,r=20,t=40,b=60)
+    m = margin or dict(l=60, r=20, t=40, b=60)
+    legend_defaults = dict(bgcolor="rgba(10,22,40,0.8)", bordercolor="rgba(0,245,255,0.2)", borderwidth=1)
+    legend = {**legend_defaults, **kwargs.pop("legend", {})}  # merge, caller wins
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(10,22,40,0.6)",
-        font=dict(family="Exo 2, sans-serif",color="#e0f4ff",size=12),
-        legend=dict(bgcolor="rgba(10,22,40,0.8)",bordercolor="rgba(0,245,255,0.2)",borderwidth=1),
+        font=dict(family="Exo 2, sans-serif", color="#e0f4ff", size=12),
+        legend=legend,
         margin=m, height=height, **kwargs)
     fig.update_xaxes(**AXIS_STYLE)
     fig.update_yaxes(**AXIS_STYLE)
