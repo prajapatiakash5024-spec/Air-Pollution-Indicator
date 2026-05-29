@@ -369,8 +369,9 @@ if "Live" in view_mode:
         fig_stream.add_trace(go.Scatter(x=[len(hist)-1],y=[hist[-1]],mode="markers",
             marker=dict(size=16,color=color,symbol="circle",line=dict(width=2,color="#ffffff"),opacity=0.9),
             name="Current",hovertemplate=f"CURRENT: AQI {hist[-1]}<extra></extra>"))
-    fig_stream.update_layout(**PLOT_TEMPLATE,height=260,xaxis_title="Reading #",yaxis_title="AQI Value",
-                             yaxis_range=[0,520],showlegend=False,margin=dict(l=60,r=20,t=20,b=50))
+    fig_stream.update_layout(**PLOT_TEMPLATE,height=260,showlegend=False,margin=dict(l=60,r=20,t=20,b=50))
+    fig_stream.update_xaxes(title_text="Reading #")
+    fig_stream.update_yaxes(title_text="AQI Value",range=[0,520])
     st.plotly_chart(fig_stream, use_container_width=True)
 
     st.markdown('<div class="section-header">🔮 24-HOUR AQI FORECAST</div>', unsafe_allow_html=True)
@@ -381,8 +382,9 @@ if "Live" in view_mode:
     fig_fc = go.Figure()
     fig_fc.add_trace(go.Bar(x=h_labels,y=forecast,marker_color=f_colors,marker_line_width=0,
                             hovertemplate="%{x}<br>Forecast AQI: %{y}<extra></extra>",name="Forecast"))
-    fig_fc.update_layout(**PLOT_TEMPLATE,height=220,xaxis_title="Hour",yaxis_title="AQI",
-                         xaxis=dict(tickangle=-45,**PLOT_TEMPLATE["xaxis"]),margin=dict(l=60,r=20,t=10,b=70))
+    fig_fc.update_layout(**PLOT_TEMPLATE,height=220,margin=dict(l=60,r=20,t=10,b=70))
+    fig_fc.update_xaxes(title_text="Hour",tickangle=-45)
+    fig_fc.update_yaxes(title_text="AQI")
     st.plotly_chart(fig_fc, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════
@@ -446,9 +448,9 @@ elif "Comparison" in view_mode:
         x=sorted_df["City"],y=sorted_df[sort_by],marker_color=sorted_df["Color"],marker_line_width=0,
         text=sorted_df[sort_by].round(1),textposition="outside",
         hovertemplate="<b>%{x}</b><br>"+sort_by+": %{y}<extra></extra>"))
-    fig_bar.update_layout(**PLOT_TEMPLATE,
-        xaxis=dict(tickangle=-38,title="City",**PLOT_TEMPLATE["xaxis"]),
-        yaxis=dict(title=f"{sort_by} ({unit})" if unit else sort_by,**PLOT_TEMPLATE["yaxis"]),height=440)
+    fig_bar.update_layout(**PLOT_TEMPLATE,height=440)
+    fig_bar.update_xaxes(title_text="City",tickangle=-38)
+    fig_bar.update_yaxes(title_text=f"{sort_by} ({unit})" if unit else sort_by)
     st.plotly_chart(fig_bar, use_container_width=True)
     st.divider()
     pie_col,scatter_col = st.columns(2)
@@ -473,7 +475,9 @@ elif "Comparison" in view_mode:
                 textposition="top center",textfont=dict(size=8,color="#6a8fad"),
                 marker=dict(size=10,color=col_c,opacity=0.85,line=dict(width=1,color="rgba(255,255,255,0.2)")),
                 hovertemplate="<b>%{text}</b><br>PM2.5: %{x}<br>PM10: %{y}<extra></extra>"))
-        fig_sc.update_layout(**PLOT_TEMPLATE,height=340,xaxis_title="PM2.5 (µg/m³)",yaxis_title="PM10 (µg/m³)")
+        fig_sc.update_layout(**PLOT_TEMPLATE,height=340)
+        fig_sc.update_xaxes(title_text="PM2.5 (µg/m³)")
+        fig_sc.update_yaxes(title_text="PM10 (µg/m³)")
         st.plotly_chart(fig_sc, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════
@@ -503,10 +507,10 @@ elif "Trend" in view_mode:
             fig_line.add_hline(y=threshold,line_dash="dot",line_color=t_c,opacity=0.5,
                                annotation_text=t_lbl,annotation_font_size=10,annotation_font_color=t_c)
         fig_line.update_layout(**PLOT_TEMPLATE,
-            xaxis=dict(title="Hour",tickangle=-45,**PLOT_TEMPLATE["xaxis"]),
-            yaxis=dict(title="AQI",range=[0,520],**PLOT_TEMPLATE["yaxis"]),
             legend=dict(orientation="h",yanchor="bottom",y=1.02,
                         bgcolor="rgba(10,22,40,0.8)",bordercolor="rgba(0,245,255,0.2)",borderwidth=1),height=450)
+        fig_line.update_xaxes(title_text="Hour",tickangle=-45)
+        fig_line.update_yaxes(title_text="AQI",range=[0,520])
         st.plotly_chart(fig_line, use_container_width=True)
         st.info("💡 Trend uses a sine-wave diurnal pattern with random noise. Connect CPCB/WAQI API for live data.")
 
@@ -576,10 +580,9 @@ elif "Pollutant" in view_mode:
     fig_hbar.add_vline(x=safe_val,line_dash="dash",line_color="#00f5ff",
                        annotation_text=f"Safe limit ({safe_val} {UNITS[focus_poll]})",
                        annotation_font_size=11,annotation_font_color="#00f5ff")
-    fig_hbar.update_layout(**PLOT_TEMPLATE,
-        xaxis=dict(title=UNITS[focus_poll],**PLOT_TEMPLATE["xaxis"]),
-        yaxis=dict(showgrid=False,**PLOT_TEMPLATE["yaxis"]),
-        height=580,margin=dict(l=120,r=80,t=20,b=40))
+    fig_hbar.update_layout(**PLOT_TEMPLATE,height=580,margin=dict(l=120,r=80,t=20,b=40))
+    fig_hbar.update_xaxes(title_text=UNITS[focus_poll])
+    fig_hbar.update_yaxes(showgrid=False)
     st.plotly_chart(fig_hbar, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════
@@ -617,8 +620,8 @@ elif "Rankings" in view_mode:
         color_continuous_scale=[[0,"#00ff88"],[0.4,"#ffb800"],[0.7,"#ff3366"],[1,"#b44dff"]],
         range_color=[0,500],hover_data={"Max":True,"Min":True,"Cities":True},
         text=state_stats["Avg"].astype(int),labels={"Avg":"Average AQI"})
-    fig_state.update_layout(**PLOT_TEMPLATE,coloraxis_showscale=False,
-        xaxis=dict(tickangle=-35,**PLOT_TEMPLATE["xaxis"]),height=380)
+    fig_state.update_layout(**PLOT_TEMPLATE,coloraxis_showscale=False,height=380)
+    fig_state.update_xaxes(tickangle=-35)
     fig_state.update_traces(textposition="outside",textfont=dict(color="#e0f4ff"))
     st.plotly_chart(fig_state, use_container_width=True)
     st.divider()
