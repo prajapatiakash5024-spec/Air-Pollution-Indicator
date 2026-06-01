@@ -19,9 +19,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ══════════════════════════════════════════════════════════════════
-# GLOBAL CSS — dark sci-fi theme v4.0
-# ══════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap');
@@ -54,8 +51,22 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:var(--bg-dark);}
 ::-webkit-scrollbar-thumb{background:var(--accent-blue);border-radius:3px;}
-.stTextArea textarea{background:rgba(0,229,255,0.04)!important;border:1px solid rgba(0,229,255,0.2)!important;border-radius:10px!important;color:#d8f0ff!important;font-family:'Exo 2',sans-serif!important;}
+.stTextArea textarea{background:rgba(0,229,255,0.04)!important;border:1px solid rgba(0,229,255,0.2)!important;border-radius:10px!important;color:#000000!important;font-family:'Exo 2',sans-serif!important;}
 .stTextArea textarea:focus{border-color:#00e5ff!important;box-shadow:0 0 12px rgba(0,229,255,0.2)!important;}
+
+/* ── INPUT TEXT BLACK ── */
+.stTextInput input{
+    background:rgba(0,229,255,0.035)!important;
+    border:1px solid rgba(0,229,255,0.2)!important;
+    border-radius:10px!important;
+    color:#000000!important;
+    font-family:'Exo 2',sans-serif!important;
+    padding:12px 16px!important;
+    transition:all 0.3s ease!important;
+}
+.stTextInput input::placeholder{color:#7a9ab8!important;}
+.stTextInput input:focus{border-color:#00e5ff!important;box-shadow:0 0 14px rgba(0,229,255,0.18)!important;background:rgba(255,255,255,0.92)!important;}
+.stTextInput label{color:#5a7a9a!important;font-family:'Exo 2',sans-serif!important;font-size:0.78rem!important;letter-spacing:1px!important;}
 
 /* ── LIVE BADGE ── */
 .live-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,136,0.08);border:1px solid var(--accent-green);border-radius:20px;padding:4px 14px;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--accent-green);letter-spacing:1.5px;animation:pulse-live 2s infinite;}
@@ -70,7 +81,7 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .health-advice{background:linear-gradient(135deg,rgba(0,229,255,0.04),rgba(0,112,255,0.04));border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:16px;font-family:'Exo 2',sans-serif;font-size:0.9rem;line-height:1.6;}
 .section-header{font-family:'Orbitron',sans-serif;font-size:0.95rem;font-weight:700;color:#00e5ff;letter-spacing:2px;text-transform:uppercase;padding:8px 0;border-bottom:1px solid rgba(0,229,255,0.18);margin-bottom:12px;}
 
-/* ══ AI CHAT ══ */
+/* ── AI CHAT ── */
 .chat-bubble-user{background:linear-gradient(135deg,rgba(0,112,255,0.2),rgba(0,229,255,0.12));border:1px solid rgba(0,229,255,0.25);border-radius:14px 14px 2px 14px;padding:12px 16px;margin:8px 0;font-family:'Exo 2',sans-serif;font-size:0.88rem;color:#d8f0ff;max-width:85%;margin-left:auto;animation:bubble-in 0.3s ease;}
 .chat-bubble-ai{background:linear-gradient(135deg,rgba(170,51,255,0.1),rgba(0,229,255,0.06));border:1px solid rgba(170,51,255,0.2);border-radius:14px 14px 14px 2px;padding:12px 16px;margin:8px 0;font-family:'Exo 2',sans-serif;font-size:0.88rem;color:#d8f0ff;max-width:92%;animation:bubble-in 0.3s ease;}
 @keyframes bubble-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
@@ -78,13 +89,13 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .chat-label-ai{font-family:'Share Tech Mono';font-size:0.65rem;color:#aa33ff;letter-spacing:1px;margin-bottom:4px;}
 .chat-container{height:380px;overflow-y:auto;padding:8px 4px;scrollbar-width:thin;}
 
-/* ══ ALERT CARDS ══ */
+/* ── ALERT CARDS ── */
 .alert-card-red{background:rgba(255,34,85,0.07);border:1px solid rgba(255,34,85,0.35);border-radius:12px;padding:14px 16px;margin:6px 0;animation:alert-pulse-red 2s infinite;}
 @keyframes alert-pulse-red{0%,100%{box-shadow:0 0 0px rgba(255,34,85,0);}50%{box-shadow:0 0 16px rgba(255,34,85,0.25);}}
 .alert-card-amber{background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.3);border-radius:12px;padding:14px 16px;margin:6px 0;}
 .alert-card-green{background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.25);border-radius:12px;padding:14px 16px;margin:6px 0;}
 
-/* ══ LOGIN PAGE ══ */
+/* ── LOGIN PAGE ── */
 .grid-bg{position:fixed;top:0;left:0;width:100%;height:100%;background-image:linear-gradient(rgba(0,229,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.025) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0;}
 .scan-line{position:fixed;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.5),transparent);animation:scan 5s linear infinite;z-index:1;pointer-events:none;}
 @keyframes scan{0%{top:0%;}100%{top:100%;}}
@@ -101,9 +112,6 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .corner-br{bottom:12px;right:12px;border-bottom:2px solid rgba(0,229,255,0.5);border-right:2px solid rgba(0,229,255,0.5);}
 .auth-title{font-family:'Orbitron',sans-serif;font-size:1.45rem;font-weight:900;background:linear-gradient(90deg,#00e5ff,#0070ff,#aa33ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;letter-spacing:2px;margin-bottom:3px;}
 .auth-subtitle{font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:#4a6a8a;text-align:center;letter-spacing:3px;margin-bottom:24px;}
-.stTextInput input{background:rgba(0,229,255,0.035)!important;border:1px solid rgba(0,229,255,0.2)!important;border-radius:10px!important;color:#d8f0ff!important;font-family:'Exo 2',sans-serif!important;padding:12px 16px!important;transition:all 0.3s ease!important;}
-.stTextInput input:focus{border-color:#00e5ff!important;box-shadow:0 0 14px rgba(0,229,255,0.18)!important;background:rgba(0,229,255,0.06)!important;}
-.stTextInput label{color:#5a7a9a!important;font-family:'Exo 2',sans-serif!important;font-size:0.78rem!important;letter-spacing:1px!important;}
 .stButton>button{background:linear-gradient(135deg,#0070ff,#00e5ff)!important;border:none!important;color:#030b18!important;font-family:'Orbitron',sans-serif!important;font-weight:700!important;font-size:0.82rem!important;letter-spacing:2px!important;border-radius:10px!important;padding:14px 28px!important;transition:all 0.3s ease!important;box-shadow:0 4px 22px rgba(0,229,255,0.22)!important;}
 .stButton>button:hover{transform:translateY(-2px)!important;box-shadow:0 8px 32px rgba(0,229,255,0.42)!important;}
 .stButton>button:active{transform:translateY(0)!important;}
@@ -118,29 +126,31 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .auth-error{background:rgba(255,34,85,0.07);border:1px solid #ff2255;border-radius:10px;padding:12px 16px;font-family:'Exo 2',sans-serif;color:#ff2255;font-size:0.85rem;margin:8px 0;animation:card-appear 0.4s ease;}
 .auth-info{background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.25);border-radius:10px;padding:12px 16px;font-family:'Exo 2',sans-serif;color:#00e5ff;font-size:0.85rem;margin:8px 0;}
 
-/* ══ HEXAGON STATS ══ */
+/* ── HEXAGON STATS ── */
 .hex-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(0,112,255,0.04));border:1px solid rgba(0,229,255,0.15);border-radius:14px;padding:18px 12px;text-align:center;position:relative;overflow:hidden;transition:all 0.3s ease;}
 .hex-stat:hover{border-color:rgba(0,229,255,0.4);box-shadow:0 0 20px rgba(0,229,255,0.12);}
 .hex-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent-cyan),transparent);opacity:0.6;}
 .hex-val{font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:900;color:#00e5ff;}
 .hex-lbl{font-family:'Exo 2',sans-serif;font-size:0.68rem;color:#5a7a9a;letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
 
-/* ══ NEWS TICKER ══ */
+/* ── NEWS TICKER ── */
 .ticker-wrap{overflow:hidden;background:rgba(0,229,255,0.04);border-top:1px solid rgba(0,229,255,0.12);border-bottom:1px solid rgba(0,229,255,0.12);padding:8px 0;margin:8px 0;}
 .ticker-text{display:inline-block;white-space:nowrap;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:#5a7a9a;animation:ticker 35s linear infinite;}
 @keyframes ticker{0%{transform:translateX(100vw);}100%{transform:translateX(-100%);}}
 .ticker-label{font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:#00e5ff;letter-spacing:2px;margin-right:12px;}
 
-/* ══ PROGRESS RINGS ══ */
+/* ── PROGRESS RINGS ── */
 .prog-ring-wrap{display:flex;align-items:center;gap:12px;padding:10px 0;}
+
+/* ── AUTH LOGO AREA ── */
+.auth-logo-wrap{text-align:center;margin-bottom:8px;position:relative;z-index:10;}
 </style>
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════
-# SVG LOGO for login page
+# SVG LOGO
 # ══════════════════════════════════════════════════════════════════
-AQI_LOGO_SVG = """
-<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+AQI_LOGO_SVG = """<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="#0a1e3a"/>
@@ -151,14 +161,8 @@ AQI_LOGO_SVG = """
       <stop offset="60%" stop-color="#0070ff" stop-opacity="0.7"/>
       <stop offset="100%" stop-color="#aa33ff" stop-opacity="0.5"/>
     </radialGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
-      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glow2">
-      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
-      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow2"><feGaussianBlur stdDeviation="4" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#00e5ff" stop-opacity="0"/>
       <stop offset="50%" stop-color="#00e5ff" stop-opacity="0.8"/>
@@ -170,49 +174,34 @@ AQI_LOGO_SVG = """
       <stop offset="100%" stop-color="#aa33ff" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <!-- Background circle -->
   <circle cx="60" cy="60" r="56" fill="url(#bgGrad)" stroke="rgba(0,229,255,0.15)" stroke-width="1"/>
-  
-  <!-- Outer orbit ring -->
   <ellipse cx="60" cy="60" rx="50" ry="20" fill="none" stroke="url(#orbitGrad)" stroke-width="1.5" opacity="0.5">
     <animateTransform attributeName="transform" type="rotate" from="0 60 60" to="360 60 60" dur="8s" repeatCount="indefinite"/>
   </ellipse>
-  
-  <!-- Second orbit ring -->
   <ellipse cx="60" cy="60" rx="42" ry="15" fill="none" stroke="url(#orbitGrad2)" stroke-width="1" opacity="0.4" transform="rotate(60 60 60)">
     <animateTransform attributeName="transform" type="rotate" from="60 60 60" to="420 60 60" dur="6s" repeatCount="indefinite"/>
   </ellipse>
-  
-  <!-- Static ring decorations -->
   <circle cx="60" cy="60" r="44" fill="none" stroke="rgba(0,229,255,0.08)" stroke-width="1" stroke-dasharray="4,6"/>
   <circle cx="60" cy="60" r="36" fill="none" stroke="rgba(170,51,255,0.07)" stroke-width="1"/>
-  
-  <!-- Satellite body -->
   <g filter="url(#glow)">
-    <!-- Main satellite bus -->
     <rect x="50" y="54" width="20" height="12" rx="3" fill="#0a2040" stroke="#00e5ff" stroke-width="1.5"/>
-    <!-- Solar panels left -->
     <rect x="26" y="57" width="22" height="6" rx="2" fill="#071830" stroke="#0070ff" stroke-width="1.2"/>
     <line x1="30" y1="57" x2="30" y2="63" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
     <line x1="34" y1="57" x2="34" y2="63" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
     <line x1="38" y1="57" x2="38" y2="63" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
     <line x1="42" y1="57" x2="42" y2="63" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
-    <!-- Solar panels right -->
     <rect x="72" y="57" width="22" height="6" rx="2" fill="#071830" stroke="#0070ff" stroke-width="1.2"/>
     <line x1="76" y1="57" x2="76" y2="63" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
     <line x1="80" y1="57" x2="80" y2="63" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
     <line x1="84" y1="57" x2="84" y2="63" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
     <line x1="88" y1="57" x2="88" y2="63" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
-    <!-- Antenna -->
     <line x1="60" y1="54" x2="60" y2="44" stroke="#00e5ff" stroke-width="1.5"/>
     <circle cx="60" cy="43" r="2.5" fill="#00e5ff" opacity="0.9">
       <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.5s" repeatCount="indefinite"/>
     </circle>
-    <!-- Sensor dome -->
     <circle cx="60" cy="60" r="5" fill="url(#coreGrad)" filter="url(#glow2)">
       <animate attributeName="r" values="5;5.5;5" dur="2s" repeatCount="indefinite"/>
     </circle>
-    <!-- Status LEDs -->
     <circle cx="53" cy="58" r="1.5" fill="#00ff88">
       <animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite"/>
     </circle>
@@ -220,45 +209,32 @@ AQI_LOGO_SVG = """
       <animate attributeName="opacity" values="0.2;1;0.2" dur="0.8s" repeatCount="indefinite"/>
     </circle>
   </g>
-  
-  <!-- Orbiting data dot -->
   <circle r="3" fill="#00e5ff" filter="url(#glow)">
-    <animateMotion dur="5s" repeatCount="indefinite">
-      <mpath href="#orbitPath"/>
-    </animateMotion>
+    <animateMotion dur="5s" repeatCount="indefinite"><mpath href="#orbitPath"/></animateMotion>
     <animate attributeName="opacity" values="0.9;0.4;0.9" dur="2.5s" repeatCount="indefinite"/>
   </circle>
   <path id="orbitPath" d="M 60,10 A 50,20 0 1 1 59.99,10" fill="none"/>
-  
-  <!-- Orbiting data dot 2 -->
   <circle r="2" fill="#aa33ff" filter="url(#glow)">
     <animateMotion dur="3.5s" repeatCount="indefinite" keyPoints="0.5;1;0;0.5" keyTimes="0;0.5;0.5;1" calcMode="linear">
       <mpath href="#orbitPath2"/>
     </animateMotion>
   </circle>
   <path id="orbitPath2" d="M 60,18 A 42,15 60 1 1 59.99,18" fill="none"/>
-  
-  <!-- Scan ring pulse -->
   <circle cx="60" cy="60" r="20" fill="none" stroke="#00e5ff" stroke-width="1.5" opacity="0">
     <animate attributeName="r" values="20;55;20" dur="3s" repeatCount="indefinite"/>
     <animate attributeName="opacity" values="0.6;0;0.6" dur="3s" repeatCount="indefinite"/>
   </circle>
-  
-  <!-- India map simplified dot indicators -->
   <circle cx="48" cy="58" r="1" fill="#ffaa00" opacity="0.7"/>
   <circle cx="55" cy="52" r="1.2" fill="#ff2255" opacity="0.7">
     <animate attributeName="opacity" values="0.7;0.2;0.7" dur="1.8s" repeatCount="indefinite"/>
   </circle>
   <circle cx="68" cy="56" r="1" fill="#00ff88" opacity="0.7"/>
   <circle cx="72" cy="62" r="1" fill="#ffaa00" opacity="0.6"/>
-  
-  <!-- Corner triangles -->
   <polygon points="4,4 14,4 4,14" fill="rgba(0,229,255,0.3)"/>
   <polygon points="116,4 106,4 116,14" fill="rgba(0,229,255,0.3)"/>
   <polygon points="4,116 14,116 4,106" fill="rgba(0,229,255,0.3)"/>
   <polygon points="116,116 106,116 116,106" fill="rgba(0,229,255,0.3)"/>
-</svg>
-"""
+</svg>"""
 
 # ══════════════════════════════════════════════════════════════════
 # USER DATABASE
@@ -292,9 +268,10 @@ def is_strong_password(pw):
     return (len(pw)>=8 and re.search(r"[A-Z]",pw) and re.search(r"[0-9]",pw) and re.search(r"[^A-Za-z0-9]",pw))
 
 # ══════════════════════════════════════════════════════════════════
-# LOGIN SCREEN
+# LOGIN SCREEN  — FIXED: split logo/title out of f-string
 # ══════════════════════════════════════════════════════════════════
 def show_auth_screen():
+    # Background particles (no f-string needed)
     st.markdown("""
     <div class="grid-bg"></div>
     <div class="scan-line"></div>
@@ -304,22 +281,32 @@ def show_auth_screen():
     <div class="particle" style="left:58%;width:3px;height:3px;background:#0070ff;animation-duration:11s;animation-delay:0.8s;"></div>
     <div class="particle" style="left:72%;width:4px;height:4px;background:#ff2255;animation-duration:7s;animation-delay:2s;"></div>
     <div class="particle" style="left:88%;width:3px;height:3px;background:#00e5ff;animation-duration:10s;animation-delay:1s;"></div>
-    <div class="particle" style="left:15%;width:2px;height:2px;background:#ffaa00;animation-duration:13s;animation-delay:4s;"></div>
-    <div class="particle" style="left:65%;width:3px;height:3px;background:#00ffcc;animation-duration:9s;animation-delay:2.5s;"></div>
     """, unsafe_allow_html=True)
 
     _, mid, _ = st.columns([1, 1.1, 1])
     with mid:
-        # Logo
-        st.markdown(f"""
-        <div style="text-align:center;margin-bottom:8px;position:relative;z-index:10;">
-            <div style="display:inline-block;animation:logo-pulse 3s ease-in-out infinite;filter:drop-shadow(0 0 16px rgba(0,229,255,0.5));">
-                {AQI_LOGO_SVG}
-            </div>
-        </div>
+        # ── Logo: render SVG separately, no inline <style> in f-string ──
+        st.markdown(
+            '<div class="auth-logo-wrap">'
+            + AQI_LOGO_SVG
+            + '</div>',
+            unsafe_allow_html=True
+        )
+
+        # ── Logo pulse animation injected cleanly ──
+        st.markdown("""
         <style>
-        @keyframes logo-pulse{{0%,100%{{filter:drop-shadow(0 0 10px rgba(0,229,255,0.4));}}50%{{filter:drop-shadow(0 0 28px rgba(0,229,255,0.9));}}}}
+        .auth-logo-wrap svg { animation: logo-pulse 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 16px rgba(0,229,255,0.5)); display:inline-block; }
+        @keyframes logo-pulse {
+            0%,100% { filter: drop-shadow(0 0 10px rgba(0,229,255,0.4)); }
+            50%      { filter: drop-shadow(0 0 28px rgba(0,229,255,0.9)); }
+        }
         </style>
+        """, unsafe_allow_html=True)
+
+        # ── Title & subtitle ──
+        st.markdown("""
         <div class="auth-title">AQI COMMAND CENTER</div>
         <div class="auth-subtitle">INDIA POLLUTION INTELLIGENCE SYSTEM v4.0</div>
         """, unsafe_allow_html=True)
@@ -385,7 +372,7 @@ def show_auth_screen():
                     st.session_state.auth_msg=(f"✅ Account created! Welcome, {reg_name.split()[0]}. Please login.","success"); st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("""<div style="text-align:center;margin-top:18px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:#2a4a6a;">🛰️ INDIA AQI COMMAND CENTER v4.0 · REAL-TIME · INTELLIGENT · SECURE</div>""", unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;margin-top:18px;font-family:\'Share Tech Mono\',monospace;font-size:0.6rem;color:#2a4a6a;">🛰️ INDIA AQI COMMAND CENTER v4.0 · REAL-TIME · INTELLIGENT · SECURE</div>', unsafe_allow_html=True)
 
 if not st.session_state.logged_in:
     show_auth_screen()
@@ -394,14 +381,16 @@ if not st.session_state.logged_in:
 if st.session_state.login_anim:
     user_info = st.session_state.users_db[st.session_state.current_user]
     placeholder = st.empty()
-    placeholder.markdown(f"""
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;text-align:center;">
-        <div style="margin-bottom:20px;animation:logo-pulse 2s infinite;filter:drop-shadow(0 0 20px rgba(0,229,255,0.7));">{AQI_LOGO_SVG}</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:2.2rem;font-weight:900;background:linear-gradient(90deg,#00e5ff,#0070ff,#aa33ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">ACCESS GRANTED</div>
-        <div style="font-family:'Share Tech Mono',monospace;font-size:0.85rem;color:#00ff88;letter-spacing:3px;margin:14px 0;animation:pulse-live 1.5s infinite;">● INITIALIZING COMMAND CENTER…</div>
-        <div style="font-family:'Exo 2',sans-serif;font-size:1.05rem;color:#d8f0ff;margin-top:6px;">Welcome back, <b style="color:#00e5ff;">{user_info['name']}</b></div>
-        <div style="font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:#5a7a9a;margin-top:5px;">{st.session_state.current_user}</div>
-    </div>""", unsafe_allow_html=True)
+    placeholder.markdown(
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;text-align:center;">'
+        '<div style="margin-bottom:20px;filter:drop-shadow(0 0 20px rgba(0,229,255,0.7));">' + AQI_LOGO_SVG + '</div>'
+        '<div style="font-family:\'Orbitron\',sans-serif;font-size:2.2rem;font-weight:900;background:linear-gradient(90deg,#00e5ff,#0070ff,#aa33ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">ACCESS GRANTED</div>'
+        '<div style="font-family:\'Share Tech Mono\',monospace;font-size:0.85rem;color:#00ff88;letter-spacing:3px;margin:14px 0;">● INITIALIZING COMMAND CENTER…</div>'
+        f'<div style="font-family:\'Exo 2\',sans-serif;font-size:1.05rem;color:#d8f0ff;margin-top:6px;">Welcome back, <b style="color:#00e5ff;">{user_info["name"]}</b></div>'
+        f'<div style="font-family:\'Share Tech Mono\',monospace;font-size:0.72rem;color:#5a7a9a;margin-top:5px;">{st.session_state.current_user}</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
     time.sleep(2.2)
     placeholder.empty()
     st.session_state.login_anim=False; st.rerun()
@@ -509,7 +498,6 @@ def get_ai_response(query):
     for key in AI_RESPONSES:
         if key in q:
             return AI_RESPONSES[key]
-    # Context-aware fallback
     for c in CITIES:
         if c["name"].lower() in q:
             city_aqi = int(st.session_state.df[st.session_state.df["City"]==c["name"]]["AQI"].values[0]) if c["name"] in st.session_state.df["City"].values else random.randint(80,350)
@@ -527,7 +515,6 @@ def get_ai_response(query):
         return f"🌏 **National Average AQI: {avg}** ({label})\n\nBased on real-time readings from {len(CITIES)} major Indian cities. The Indo-Gangetic Plain cities consistently rank among the most polluted."
     return AI_RESPONSES["default"]
 
-# ── Session state ──
 if "df"           not in st.session_state: st.session_state.df           = generate_data()
 if "live_aqi"     not in st.session_state: st.session_state.live_aqi     = 142
 if "live_city"    not in st.session_state: st.session_state.live_city    = "Mumbai"
@@ -536,7 +523,6 @@ if "last_refresh" not in st.session_state: st.session_state.last_refresh = datet
 if "auto_refresh" not in st.session_state: st.session_state.auto_refresh = False
 if "compare_cities" not in st.session_state: st.session_state.compare_cities = []
 
-# ── Generate alerts ──
 def check_alerts(df_in, threshold=200):
     alerts = []
     for _,row in df_in.iterrows():
@@ -553,12 +539,15 @@ alert_threshold_user = user_info.get("alert_threshold", 200)
 active_alerts = check_alerts(st.session_state.df, alert_threshold_user)
 
 with st.sidebar:
-    st.markdown(f"""
-    <div style="text-align:center;padding:10px 0 14px;">
-        <div style="display:inline-block;filter:drop-shadow(0 0 10px rgba(0,229,255,0.4));margin-bottom:8px;">{AQI_LOGO_SVG.replace('width="120" height="120"','width="72" height="72"')}</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:900;background:linear-gradient(90deg,#00e5ff,#aa33ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">AQI COMMAND</div>
-        <div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:#4a6a8a;letter-spacing:2px;margin-top:2px;">INDIA MONITOR v4.0</div>
-    </div>""", unsafe_allow_html=True)
+    logo_small = AQI_LOGO_SVG.replace('width="120" height="120"','width="72" height="72"')
+    st.markdown(
+        '<div style="text-align:center;padding:10px 0 14px;">'
+        + logo_small +
+        '<div style="font-family:\'Orbitron\',sans-serif;font-size:1.1rem;font-weight:900;background:linear-gradient(90deg,#00e5ff,#aa33ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">AQI COMMAND</div>'
+        '<div style="font-family:\'Share Tech Mono\',monospace;font-size:0.6rem;color:#4a6a8a;letter-spacing:2px;margin-top:2px;">INDIA MONITOR v4.0</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
     initials = "".join([w[0].upper() for w in user_info["name"].split()[:2]])
     st.markdown(f"""
@@ -628,7 +617,6 @@ with col_title:
 with col_live:
     st.markdown('<div style="display:flex;justify-content:flex-end;align-items:center;height:100%;padding-top:8px;"><div class="live-badge"><div class="dot-live"></div>LIVE MONITORING</div></div>', unsafe_allow_html=True)
 
-# News ticker
 ticker_items = " · ".join([f"{r['Emoji']} {r['City']}: AQI {r['AQI']} ({r['Category']})" for _,r in df.iterrows()])
 st.markdown(f'<div class="ticker-wrap"><span class="ticker-label">📡 LIVE</span><span class="ticker-text">{ticker_items}</span></div>', unsafe_allow_html=True)
 
@@ -739,9 +727,6 @@ if "Live" in view_mode:
     fig_fc.update_xaxes(title_text="Hour",tickangle=-45); fig_fc.update_yaxes(title_text="AQI")
     st.plotly_chart(fig_fc, use_container_width=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 1 — POLLUTION MAP
-# ══════════════════════════════════════════════════════════════════
 elif "Map" in view_mode:
     st.markdown('<h2>🗺️ INDIA POLLUTION MAP</h2>', unsafe_allow_html=True)
     col_left,col_right = st.columns([3,1])
@@ -763,9 +748,6 @@ elif "Map" in view_mode:
         for _,row in ranked.iterrows():
             st.markdown(f'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin:2px 0;border-radius:7px;background:rgba(0,229,255,0.03);border-left:3px solid {row["Color"]};"><span style="font-family:Exo 2;font-size:0.8rem;font-weight:600;color:#d8f0ff;">{row["Emoji"]} {row["City"]}</span><span style="font-family:Share Tech Mono;font-size:0.78rem;color:{row["Color"]};">{row["AQI"]}</span></div>', unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 2 — CITY COMPARISON
-# ══════════════════════════════════════════════════════════════════
 elif "Comparison" in view_mode:
     st.markdown('<h2>📊 CITY AQI COMPARISON</h2>', unsafe_allow_html=True)
     cc1,cc2 = st.columns(2)
@@ -792,9 +774,6 @@ elif "Comparison" in view_mode:
         apply_theme(fig_sc,height=330); fig_sc.update_xaxes(title_text="PM2.5 (µg/m³)"); fig_sc.update_yaxes(title_text="PM10 (µg/m³)")
         st.plotly_chart(fig_sc, use_container_width=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 3 — HOURLY TREND
-# ══════════════════════════════════════════════════════════════════
 elif "Trend" in view_mode:
     st.markdown('<h2>📈 24-HOUR AQI TREND</h2>', unsafe_allow_html=True)
     selected_cities=st.multiselect("Select cities (up to 6)",df["City"].tolist(),default=["Delhi","Mumbai","Bangalore","Chennai"],key="trend_cities")
@@ -812,7 +791,6 @@ elif "Trend" in view_mode:
         apply_theme(fig_line,height=440,legend=dict(orientation="h",yanchor="bottom",y=1.02,bgcolor="rgba(7,16,32,0.85)",bordercolor="rgba(0,229,255,0.15)",borderwidth=1))
         fig_line.update_xaxes(title_text="Hour",tickangle=-45); fig_line.update_yaxes(title_text="AQI",range=[0,520])
         st.plotly_chart(fig_line, use_container_width=True)
-        # Weekly trend
         st.markdown('<div class="section-header">📅 7-DAY AQI TREND</div>', unsafe_allow_html=True)
         days=[f"Day {i+1}" for i in range(7)]
         fig_week=go.Figure()
@@ -825,9 +803,6 @@ elif "Trend" in view_mode:
         fig_week.update_yaxes(title_text="AQI")
         st.plotly_chart(fig_week, use_container_width=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 4 — POLLUTANT BREAKDOWN
-# ══════════════════════════════════════════════════════════════════
 elif "Pollutant" in view_mode:
     st.markdown('<h2>🧪 POLLUTANT BREAKDOWN</h2>', unsafe_allow_html=True)
     selected_city=st.selectbox("Select a city",df["City"].tolist(),key="poll_city")
@@ -860,9 +835,6 @@ elif "Pollutant" in view_mode:
     apply_theme(fig_hbar,height=570,margin=dict(l=120,r=80,t=20,b=40)); fig_hbar.update_xaxes(title_text=UNITS[focus_poll]); fig_hbar.update_yaxes(showgrid=False)
     st.plotly_chart(fig_hbar, use_container_width=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 5 — RANKINGS & STATS
-# ══════════════════════════════════════════════════════════════════
 elif "Rankings" in view_mode:
     st.markdown('<h2>🏆 RANKINGS & STATISTICS</h2>', unsafe_allow_html=True)
     col1,col2=st.columns(2)
@@ -900,9 +872,6 @@ elif "Rankings" in view_mode:
         apply_theme(fig_v,height=330,margin=dict(l=60,r=20,t=20,b=60),showlegend=False); fig_v.update_yaxes(title_text="AQI")
         st.plotly_chart(fig_v, use_container_width=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 6 — AI ASSISTANT (NEW)
-# ══════════════════════════════════════════════════════════════════
 elif "AI Assistant" in view_mode:
     st.markdown('<h2>🤖 AI POLLUTION INTELLIGENCE ASSISTANT</h2>', unsafe_allow_html=True)
     st.markdown("""
@@ -910,8 +879,6 @@ elif "AI Assistant" in view_mode:
         <div style="font-family:Orbitron,sans-serif;font-size:0.8rem;color:#aa33ff;letter-spacing:2px;margin-bottom:6px;">🤖 AQI INTELLIGENCE ENGINE v4.0</div>
         <div style="font-family:Exo 2,sans-serif;font-size:0.85rem;color:#8aa0ba;">Ask me about city AQI, pollutants, health effects, forecasts, or say "worst cities" / "best cities" / "national average".</div>
     </div>""", unsafe_allow_html=True)
-
-    # Quick action buttons
     st.markdown('<div style="font-family:Share Tech Mono;font-size:0.68rem;color:#5a7a9a;letter-spacing:1px;margin-bottom:8px;">QUICK QUERIES:</div>', unsafe_allow_html=True)
     qcols = st.columns(4)
     quick_queries = ["What are the worst cities?","Tell me about Delhi AQI","What is PM2.5?","National average AQI?"]
@@ -922,31 +889,22 @@ elif "AI Assistant" in view_mode:
                 st.session_state.chat_history.append({"role":"user","text":q})
                 response = get_ai_response(q)
                 st.session_state.chat_history.append({"role":"ai","text":response})
-
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-
-    # Chat display
     st.markdown('<div class="chat-container" id="chatbox">', unsafe_allow_html=True)
     if not st.session_state.chat_history:
-        st.markdown("""
-        <div style="text-align:center;padding:40px 20px;color:#4a6a8a;">
-            <div style="font-size:2.5rem;margin-bottom:10px;">🤖</div>
-            <div style="font-family:Share Tech Mono;font-size:0.72rem;letter-spacing:2px;">AWAITING YOUR QUERY…</div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;padding:40px 20px;color:#4a6a8a;"><div style="font-size:2.5rem;margin-bottom:10px;">🤖</div><div style="font-family:Share Tech Mono;font-size:0.72rem;letter-spacing:2px;">AWAITING YOUR QUERY…</div></div>', unsafe_allow_html=True)
     for msg in st.session_state.chat_history:
         if msg["role"]=="user":
             st.markdown(f'<div class="chat-label-user">YOU</div><div class="chat-bubble-user">{msg["text"]}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="chat-label-ai">🤖 AQI AI</div><div class="chat-bubble-ai">{msg["text"]}</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-
     chat_col1, chat_col2 = st.columns([4,1])
     with chat_col1:
-        user_input = st.text_input("Ask the AI…", key="ai_input", placeholder="e.g. What is the AQI in Mumbai? / Explain PM2.5 health effects")
+        user_input = st.text_input("Ask the AI…", key="ai_input", placeholder="e.g. What is the AQI in Mumbai?")
     with chat_col2:
         st.markdown('<div style="height:28px;"></div>', unsafe_allow_html=True)
         send_btn = st.button("📡 SEND", use_container_width=True, key="ai_send")
-
     if send_btn and user_input:
         st.session_state.chat_history.append({"role":"user","text":user_input})
         with st.spinner("🤖 Analyzing…"):
@@ -954,7 +912,6 @@ elif "AI Assistant" in view_mode:
             response = get_ai_response(user_input)
         st.session_state.chat_history.append({"role":"ai","text":response})
         st.rerun()
-
     col_clear,col_export = st.columns(2)
     with col_clear:
         if st.button("🗑️ Clear Chat History", use_container_width=True):
@@ -963,45 +920,21 @@ elif "AI Assistant" in view_mode:
         if st.session_state.chat_history:
             chat_text="\n".join([f"{'YOU' if m['role']=='user' else 'AI'}: {m['text']}" for m in st.session_state.chat_history])
             st.download_button("⬇️ Export Chat Log", chat_text, file_name=f"aqi_chat_{datetime.date.today()}.txt", mime="text/plain", use_container_width=True)
-
-    # AI Insight cards
     st.divider()
     st.markdown('<div class="section-header">💡 AI GENERATED INSIGHTS</div>', unsafe_allow_html=True)
     ins_col1,ins_col2,ins_col3 = st.columns(3)
     worst3 = df.nlargest(3,"AQI")
     best3  = df.nsmallest(3,"AQI")
     with ins_col1:
-        st.markdown(f"""
-        <div style="background:rgba(255,34,85,0.06);border:1px solid rgba(255,34,85,0.2);border-radius:12px;padding:16px;">
-            <div style="font-family:Orbitron;font-size:0.72rem;color:#ff2255;letter-spacing:2px;margin-bottom:8px;">🚨 CRITICAL ZONE ALERT</div>
-            <div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;">
-                {worst3.iloc[0]["City"]} leads with AQI {worst3.iloc[0]["AQI"]} — {worst3.iloc[0]["Category"]} category. Immediate health action recommended for {int((df["AQI"]>300).sum())} cities in the danger zone.
-            </div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f'<div style="background:rgba(255,34,85,0.06);border:1px solid rgba(255,34,85,0.2);border-radius:12px;padding:16px;"><div style="font-family:Orbitron;font-size:0.72rem;color:#ff2255;letter-spacing:2px;margin-bottom:8px;">🚨 CRITICAL ZONE ALERT</div><div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;">{worst3.iloc[0]["City"]} leads with AQI {worst3.iloc[0]["AQI"]} — {worst3.iloc[0]["Category"]} category. Immediate health action recommended for {int((df["AQI"]>300).sum())} cities in the danger zone.</div></div>', unsafe_allow_html=True)
     with ins_col2:
-        st.markdown(f"""
-        <div style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);border-radius:12px;padding:16px;">
-            <div style="font-family:Orbitron;font-size:0.72rem;color:#00ff88;letter-spacing:2px;margin-bottom:8px;">✅ CLEAN AIR REPORT</div>
-            <div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;">
-                {best3.iloc[0]["City"]} has the cleanest air at AQI {best3.iloc[0]["AQI"]}. {safe_count} cities are within safe limits today — ideal for outdoor activities.
-            </div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f'<div style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);border-radius:12px;padding:16px;"><div style="font-family:Orbitron;font-size:0.72rem;color:#00ff88;letter-spacing:2px;margin-bottom:8px;">✅ CLEAN AIR REPORT</div><div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;">{best3.iloc[0]["City"]} has the cleanest air at AQI {best3.iloc[0]["AQI"]}. {safe_count} cities are within safe limits today.</div></div>', unsafe_allow_html=True)
     with ins_col3:
         trend_word = "improving" if random.random()>0.5 else "worsening"
-        st.markdown(f"""
-        <div style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:16px;">
-            <div style="font-family:Orbitron;font-size:0.72rem;color:#00e5ff;letter-spacing:2px;margin-bottom:8px;">📈 TREND ANALYSIS</div>
-            <div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;">
-                National average AQI is {avg_aqi} ({avg_label}). Indo-Gangetic Plain cities show consistently elevated PM2.5. Overall trend is {trend_word} compared to last 24h.
-            </div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f'<div style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:16px;"><div style="font-family:Orbitron;font-size:0.72rem;color:#00e5ff;letter-spacing:2px;margin-bottom:8px;">📈 TREND ANALYSIS</div><div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;">National average AQI is {avg_aqi} ({avg_label}). Overall trend is {trend_word} compared to last 24h.</div></div>', unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 7 — ALERTS & NOTIFICATIONS (NEW)
-# ══════════════════════════════════════════════════════════════════
 elif "Alerts" in view_mode:
     st.markdown('<h2>🔔 ALERTS & NOTIFICATIONS</h2>', unsafe_allow_html=True)
-
     al_col1,al_col2 = st.columns([2,1])
     with al_col1:
         st.markdown(f'<div class="section-header">🚨 ACTIVE ALERTS ({len(active_alerts)} cities above threshold {alert_threshold_user})</div>', unsafe_allow_html=True)
@@ -1010,23 +943,7 @@ elif "Alerts" in view_mode:
         for alert in active_alerts[:15]:
             card_cls = "alert-card-red" if alert["level"]=="CRITICAL" else "alert-card-amber"
             icon = "🚨" if alert["level"]=="CRITICAL" else "⚠️"
-            st.markdown(f"""
-            <div class="{card_cls}">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <span style="font-family:Orbitron,sans-serif;font-size:0.85rem;color:{alert['color']};font-weight:700;">{icon} {alert['city']}</span>
-                        <span style="font-family:Exo 2;font-size:0.78rem;color:#8aa0ba;margin-left:10px;">{alert['cat']}</span>
-                    </div>
-                    <div>
-                        <span style="font-family:Orbitron,sans-serif;font-size:1.1rem;color:{alert['color']};font-weight:900;">AQI {alert['aqi']}</span>
-                        <span style="font-family:Share Tech Mono;font-size:0.62rem;color:#5a7a9a;margin-left:8px;">{alert['time']}</span>
-                    </div>
-                </div>
-                <div style="font-family:Exo 2;font-size:0.75rem;color:#8aa0ba;margin-top:5px;">
-                    {get_aqi_info(alert['aqi'])[3]}
-                </div>
-            </div>""", unsafe_allow_html=True)
-
+            st.markdown(f'<div class="{card_cls}"><div style="display:flex;justify-content:space-between;align-items:center;"><div><span style="font-family:Orbitron,sans-serif;font-size:0.85rem;color:{alert["color"]};font-weight:700;">{icon} {alert["city"]}</span><span style="font-family:Exo 2;font-size:0.78rem;color:#8aa0ba;margin-left:10px;">{alert["cat"]}</span></div><div><span style="font-family:Orbitron,sans-serif;font-size:1.1rem;color:{alert["color"]};font-weight:900;">AQI {alert["aqi"]}</span><span style="font-family:Share Tech Mono;font-size:0.62rem;color:#5a7a9a;margin-left:8px;">{alert["time"]}</span></div></div><div style="font-family:Exo 2;font-size:0.75rem;color:#8aa0ba;margin-top:5px;">{get_aqi_info(alert["aqi"])[3]}</div></div>', unsafe_allow_html=True)
     with al_col2:
         st.markdown('<div class="section-header">⚙️ ALERT SETTINGS</div>', unsafe_allow_html=True)
         new_threshold = st.slider("Alert Threshold AQI", 50, 400, alert_threshold_user, step=25, key="new_alert_threshold")
@@ -1035,41 +952,18 @@ elif "Alerts" in view_mode:
         alerts_on = st.toggle("Enable Alerts", value=user_info.get("alerts_enabled",True), key="alerts_enabled_toggle")
         if alerts_on != user_info.get("alerts_enabled"):
             st.session_state.users_db[st.session_state.current_user]["alerts_enabled"] = alerts_on
-        notify_email = st.checkbox("Email Notifications", value=True, key="notif_email")
-        notify_browser = st.checkbox("Browser Notifications", value=False, key="notif_browser")
-        st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="auth-info">
-            📧 Alerts sent to<br><b style="color:#00e5ff;">{st.session_state.current_user}</b><br>
-            when AQI &gt; {new_threshold}
-        </div>""", unsafe_allow_html=True)
-
-        st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-header">📊 ALERT SUMMARY</div>', unsafe_allow_html=True)
+        st.checkbox("Email Notifications", value=True, key="notif_email")
+        st.checkbox("Browser Notifications", value=False, key="notif_browser")
+        st.markdown(f'<div class="auth-info">📧 Alerts sent to<br><b style="color:#00e5ff;">{st.session_state.current_user}</b><br>when AQI &gt; {new_threshold}</div>', unsafe_allow_html=True)
         critical_count = sum(1 for a in active_alerts if a["level"]=="CRITICAL")
         warning_count  = sum(1 for a in active_alerts if a["level"]=="WARNING")
-        st.markdown(f"""
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-            <div style="background:rgba(255,34,85,0.07);border:1px solid rgba(255,34,85,0.25);border-radius:10px;padding:12px;text-align:center;">
-                <div style="font-family:Orbitron;font-size:1.4rem;color:#ff2255;font-weight:900;">{critical_count}</div>
-                <div style="font-family:Exo 2;font-size:0.68rem;color:#5a7a9a;text-transform:uppercase;margin-top:3px;">Critical</div>
-            </div>
-            <div style="background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.25);border-radius:10px;padding:12px;text-align:center;">
-                <div style="font-family:Orbitron;font-size:1.4rem;color:#ffaa00;font-weight:900;">{warning_count}</div>
-                <div style="font-family:Exo 2;font-size:0.68rem;color:#5a7a9a;text-transform:uppercase;margin-top:3px;">Warning</div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-
+        st.markdown(f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;"><div style="background:rgba(255,34,85,0.07);border:1px solid rgba(255,34,85,0.25);border-radius:10px;padding:12px;text-align:center;"><div style="font-family:Orbitron;font-size:1.4rem;color:#ff2255;font-weight:900;">{critical_count}</div><div style="font-family:Exo 2;font-size:0.68rem;color:#5a7a9a;text-transform:uppercase;margin-top:3px;">Critical</div></div><div style="background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.25);border-radius:10px;padding:12px;text-align:center;"><div style="font-family:Orbitron;font-size:1.4rem;color:#ffaa00;font-weight:900;">{warning_count}</div><div style="font-family:Exo 2;font-size:0.68rem;color:#5a7a9a;text-transform:uppercase;margin-top:3px;">Warning</div></div></div>', unsafe_allow_html=True)
     st.divider()
-    st.markdown('<div class="section-header">📈 AQI ALERT HISTOGRAM</div>', unsafe_allow_html=True)
     fig_hist=go.Figure(go.Histogram(x=df["AQI"],nbinsx=25,marker_color="#00e5ff",marker_line_color="rgba(0,229,255,0.5)",marker_line_width=1,opacity=0.7,hovertemplate="AQI Range: %{x}<br>Cities: %{y}<extra></extra>"))
     fig_hist.add_vline(x=new_threshold,line_dash="dash",line_color="#ff2255",annotation_text=f"Alert Threshold ({new_threshold})",annotation_font_color="#ff2255",annotation_font_size=11)
     apply_theme(fig_hist,height=260); fig_hist.update_xaxes(title_text="AQI Value"); fig_hist.update_yaxes(title_text="Number of Cities")
     st.plotly_chart(fig_hist, use_container_width=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 8 — WEATHER & AQI FORECAST
-# ══════════════════════════════════════════════════════════════════
 elif "Weather" in view_mode:
     st.markdown('<h2>🌡️ WEATHER & AQI FORECAST</h2>', unsafe_allow_html=True)
     wc1,wc2=st.columns(2)
@@ -1093,13 +987,9 @@ elif "Weather" in view_mode:
         fig_fc2.update_yaxes(gridcolor="rgba(0,229,255,0.06)",linecolor="rgba(0,229,255,0.12)",row=i,col=1)
     st.plotly_chart(fig_fc2, use_container_width=True)
     st.divider()
-    st.markdown('<div class="section-header">📅 DAILY FORECAST TABLE</div>', unsafe_allow_html=True)
     forecast_df=pd.DataFrame({"Date":d_labels,"AQI":aqi_fc,"Category":[get_aqi_info(v)[0] for v in aqi_fc],"Temp (°C)":temp_fc,"Humidity (%)":humid_fc,"Wind (km/h)":[round(w,1) for w in wind_fc]})
     st.dataframe(forecast_df.style.background_gradient(subset=["AQI"],cmap="RdYlGn_r"),use_container_width=True,hide_index=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 9 — IMAGE PREDICTOR
-# ══════════════════════════════════════════════════════════════════
 elif "Image" in view_mode:
     st.markdown('<h2>📸 IMAGE-BASED AIR QUALITY PREDICTOR</h2>', unsafe_allow_html=True)
     up_col,result_col=st.columns([1,1])
@@ -1114,16 +1004,8 @@ elif "Image" in view_mode:
                     time.sleep(1.5)
                 pollution=random.randint(1,100); aqi_equiv=int(pollution*5)
                 p_label,p_color,p_emoji,p_advice=get_aqi_info(aqi_equiv)
-                st.markdown(f"""
-                <div class="aqi-live-card" style="border-color:{p_color}44;">
-                    <div style="font-family:Share Tech Mono;font-size:0.7rem;color:#5a7a9a;letter-spacing:2px;margin-bottom:8px;">VISUAL HAZE ANALYSIS RESULT</div>
-                    <div class="aqi-number" style="color:{p_color};text-shadow:0 0 30px {p_color}80;">{pollution}%</div>
-                    <div class="aqi-label-text" style="color:{p_color};">{p_emoji} {p_label}</div>
-                    <div style="font-family:Exo 2;font-size:0.8rem;color:#8aa0ba;margin-top:8px;">Estimated AQI Equivalent: <b style="color:{p_color};">{aqi_equiv}</b></div>
-                    <div style="margin-top:12px;font-family:Exo 2;font-size:0.8rem;color:#d8f0ff;">{p_advice}</div>
-                </div>""", unsafe_allow_html=True)
+                st.markdown(f'<div class="aqi-live-card" style="border-color:{p_color}44;"><div style="font-family:Share Tech Mono;font-size:0.7rem;color:#5a7a9a;letter-spacing:2px;margin-bottom:8px;">VISUAL HAZE ANALYSIS RESULT</div><div class="aqi-number" style="color:{p_color};text-shadow:0 0 30px {p_color}80;">{pollution}%</div><div class="aqi-label-text" style="color:{p_color};">{p_emoji} {p_label}</div><div style="font-family:Exo 2;font-size:0.8rem;color:#8aa0ba;margin-top:8px;">Estimated AQI Equivalent: <b style="color:{p_color};">{aqi_equiv}</b></div><div style="margin-top:12px;font-family:Exo 2;font-size:0.8rem;color:#d8f0ff;">{p_advice}</div></div>', unsafe_allow_html=True)
                 st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
-                # Visual breakdown
                 st.markdown('<div class="section-header">🔬 VISUAL ANALYSIS BREAKDOWN</div>', unsafe_allow_html=True)
                 metrics = {"Haze Index": random.randint(20,90), "Visibility Score": random.randint(10,95), "Particulate Density": random.randint(15,85), "Sky Clarity": random.randint(5,80)}
                 for k,v in metrics.items():
@@ -1132,9 +1014,6 @@ elif "Image" in view_mode:
         else:
             st.markdown('<div style="text-align:center;padding:60px 20px;background:rgba(0,229,255,0.03);border:1px dashed rgba(0,229,255,0.18);border-radius:12px;font-family:Exo 2;"><div style="font-size:3rem;margin-bottom:12px;">📷</div><div style="color:#5a7a9a;font-size:0.88rem;">Upload a sky or outdoor image<br>to begin visual haze analysis</div></div>', unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 10 — DATA EXPORT
-# ══════════════════════════════════════════════════════════════════
 elif "Export" in view_mode:
     st.markdown('<h2>📋 DATA EXPORT & REPORT</h2>', unsafe_allow_html=True)
     exp_col1,exp_col2=st.columns(2)
@@ -1143,7 +1022,6 @@ elif "Export" in view_mode:
         st.download_button("⬇️  Full Dataset (CSV)", df[["City","State","AQI","Category"]+POLLUTANTS].to_csv(index=False), file_name=f"india_aqi_{datetime.date.today()}.csv", mime="text/csv", use_container_width=True)
         st.download_button("⬇️  Top 10 Polluted (CSV)", df.nlargest(10,"AQI")[["City","State","AQI","Category"]+POLLUTANTS].to_csv(index=False), file_name=f"top10_polluted_{datetime.date.today()}.csv", mime="text/csv", use_container_width=True)
         st.download_button("⬇️  Safe Cities Report (CSV)", df[df["AQI"]<=100][["City","State","AQI","Category"]+POLLUTANTS].to_csv(index=False), file_name=f"safe_cities_{datetime.date.today()}.csv", mime="text/csv", use_container_width=True)
-        # JSON export
         json_data = df[["City","State","AQI","Category"]+POLLUTANTS].to_json(orient="records",indent=2)
         st.download_button("⬇️  Full Dataset (JSON)", json_data, file_name=f"india_aqi_{datetime.date.today()}.json", mime="application/json", use_container_width=True)
     with exp_col2:
@@ -1151,7 +1029,6 @@ elif "Export" in view_mode:
         summary=df[["AQI"]+POLLUTANTS].describe().round(2)
         st.dataframe(summary.style.background_gradient(cmap="Blues"),use_container_width=True)
     st.divider()
-    st.markdown('<div class="section-header">🔍 INTERACTIVE DATA TABLE</div>', unsafe_allow_html=True)
     sc1,sc2=st.columns(2)
     search_city=sc1.text_input("🔎 Search city…",placeholder="Type a city name")
     cat_filter=sc2.multiselect("Filter by Category",["Good","Satisfactory","Moderate","Poor","Very Poor","Severe"])
@@ -1160,26 +1037,15 @@ elif "Export" in view_mode:
     if cat_filter:  display_df=display_df[display_df["Category"].isin(cat_filter)]
     st.dataframe(display_df[["City","State","AQI","Category"]+POLLUTANTS].sort_values("AQI",ascending=False).reset_index(drop=True).style.background_gradient(subset=["AQI"],cmap="RdYlGn_r"),use_container_width=True,height=420)
 
-# ══════════════════════════════════════════════════════════════════
-# VIEW 11 — MY ACCOUNT
-# ══════════════════════════════════════════════════════════════════
 elif "Account" in view_mode:
     st.markdown('<h2>👤 MY ACCOUNT</h2>', unsafe_allow_html=True)
     u=st.session_state.users_db[st.session_state.current_user]
     acc_col1,acc_col2=st.columns([1,1])
     with acc_col1:
         initials_acc="".join([w[0].upper() for w in u["name"].split()[:2]])
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,#071020,#0c1a2e);border:1px solid rgba(0,229,255,0.2);border-radius:16px;padding:28px;text-align:center;margin-bottom:16px;">
-            <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#0070ff,#00e5ff);display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif;font-size:1.6rem;font-weight:700;color:#030b18;margin:0 auto 16px;">{initials_acc}</div>
-            <div style="font-family:Orbitron,sans-serif;font-size:1.15rem;color:#00e5ff;font-weight:700;">{u['name']}</div>
-            <div style="font-family:Share Tech Mono,monospace;font-size:0.7rem;color:#5a7a9a;margin:5px 0;">{st.session_state.current_user}</div>
-            <div style="display:inline-block;background:rgba(0,255,136,0.08);border:1px solid #00ff88;border-radius:20px;padding:4px 14px;font-family:Exo 2,sans-serif;font-size:0.73rem;color:#00ff88;margin-top:6px;">⬡ {u['role']}</div>
-            <div style="margin-top:14px;font-family:Share Tech Mono;font-size:0.62rem;color:#2a4a6a;">Member since: {u['joined']}<br>Last login: {u.get('last_login') or 'This session'}</div>
-        </div>""", unsafe_allow_html=True)
-        st.markdown('<div class="section-header">🔔 ALERT PREFERENCES</div>', unsafe_allow_html=True)
-        alerts=st.toggle("Enable AQI Alerts",value=u.get("alerts_enabled",True),key="alerts_toggle")
-        if alerts!=u.get("alerts_enabled"): st.session_state.users_db[st.session_state.current_user]["alerts_enabled"]=alerts
+        st.markdown(f'<div style="background:linear-gradient(135deg,#071020,#0c1a2e);border:1px solid rgba(0,229,255,0.2);border-radius:16px;padding:28px;text-align:center;margin-bottom:16px;"><div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#0070ff,#00e5ff);display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif;font-size:1.6rem;font-weight:700;color:#030b18;margin:0 auto 16px;">{initials_acc}</div><div style="font-family:Orbitron,sans-serif;font-size:1.15rem;color:#00e5ff;font-weight:700;">{u["name"]}</div><div style="font-family:Share Tech Mono,monospace;font-size:0.7rem;color:#5a7a9a;margin:5px 0;">{st.session_state.current_user}</div><div style="display:inline-block;background:rgba(0,255,136,0.08);border:1px solid #00ff88;border-radius:20px;padding:4px 14px;font-family:Exo 2,sans-serif;font-size:0.73rem;color:#00ff88;margin-top:6px;">⬡ {u["role"]}</div><div style="margin-top:14px;font-family:Share Tech Mono;font-size:0.62rem;color:#2a4a6a;">Member since: {u["joined"]}<br>Last login: {u.get("last_login") or "This session"}</div></div>', unsafe_allow_html=True)
+        alerts_t=st.toggle("Enable AQI Alerts",value=u.get("alerts_enabled",True),key="alerts_toggle")
+        if alerts_t!=u.get("alerts_enabled"): st.session_state.users_db[st.session_state.current_user]["alerts_enabled"]=alerts_t
         alert_threshold=st.slider("Alert when AQI exceeds",100,400,u.get("alert_threshold",200),step=50,key="alert_threshold_acc")
         if alert_threshold!=u.get("alert_threshold"): st.session_state.users_db[st.session_state.current_user]["alert_threshold"]=alert_threshold
         st.markdown(f'<div class="auth-info">📧 Alerts to <b>{st.session_state.current_user}</b> when AQI &gt; {alert_threshold}</div>', unsafe_allow_html=True)
@@ -1203,19 +1069,7 @@ elif "Account" in view_mode:
         st.divider()
         st.markdown('<div class="section-header">📊 SESSION STATS</div>', unsafe_allow_html=True)
         total_users=len(st.session_state.users_db)
-        st.markdown(f"""
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
-            <div class="hex-stat"><div class="hex-val" style="color:#00e5ff;">{total_users}</div><div class="hex-lbl">Registered Users</div></div>
-            <div class="hex-stat"><div class="hex-val" style="color:#00ff88;">{len(CITIES)}</div><div class="hex-lbl">Cities Monitored</div></div>
-            <div class="hex-stat"><div class="hex-val" style="color:#aa33ff;">{avg_aqi}</div><div class="hex-lbl">National Avg AQI</div></div>
-            <div class="hex-stat"><div class="hex-val" style="color:#ffaa00;">{dangerous}</div><div class="hex-lbl">High Risk Cities</div></div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;"><div class="hex-stat"><div class="hex-val" style="color:#00e5ff;">{total_users}</div><div class="hex-lbl">Registered Users</div></div><div class="hex-stat"><div class="hex-val" style="color:#00ff88;">{len(CITIES)}</div><div class="hex-lbl">Cities Monitored</div></div><div class="hex-stat"><div class="hex-val" style="color:#aa33ff;">{avg_aqi}</div><div class="hex-lbl">National Avg AQI</div></div><div class="hex-stat"><div class="hex-val" style="color:#ffaa00;">{dangerous}</div><div class="hex-lbl">High Risk Cities</div></div></div>', unsafe_allow_html=True)
 
-# ── Footer ──
 st.divider()
-st.markdown(f"""
-<div style="display:flex;justify-content:space-between;align-items:center;font-family:Share Tech Mono,monospace;font-size:0.7rem;color:#4a6a8a;padding:6px 0;">
-    <span>🛰️ INDIA AQI COMMAND CENTER v4.0</span>
-    <span>👤 Logged in as <b style="color:#00e5ff;">{user_info['name']}</b></span>
-    <span>Built with Streamlit · Plotly · Python</span>
-</div>""", unsafe_allow_html=True)
+st.markdown(f'<div style="display:flex;justify-content:space-between;align-items:center;font-family:Share Tech Mono,monospace;font-size:0.7rem;color:#4a6a8a;padding:6px 0;"><span>🛰️ INDIA AQI COMMAND CENTER v4.0</span><span>👤 Logged in as <b style="color:#00e5ff;">{user_info["name"]}</b></span><span>Built with Streamlit · Plotly · Python</span></div>', unsafe_allow_html=True)
