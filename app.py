@@ -89,7 +89,6 @@ def init_session():
         "current_user": None,
         "auth_msg": ("", ""),
         "login_anim": False,
-        "chat_history": [],
         "alerts_log": [],
         "df": None,
         "live_aqi": 142,
@@ -159,12 +158,6 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .aqi-label-text{font-family:'Exo 2',sans-serif;font-size:1rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
 .health-advice{background:linear-gradient(135deg,rgba(0,229,255,0.04),rgba(0,112,255,0.04));border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:16px;font-family:'Exo 2',sans-serif;font-size:0.9rem;line-height:1.6;}
 .section-header{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700;color:#00e5ff;letter-spacing:2px;text-transform:uppercase;padding:8px 0;border-bottom:1px solid rgba(0,229,255,0.18);margin-bottom:12px;}
-
-/* CHAT */
-.chat-bubble-user{background:linear-gradient(135deg,rgba(0,112,255,0.2),rgba(0,229,255,0.12));border:1px solid rgba(0,229,255,0.25);border-radius:14px 14px 2px 14px;padding:12px 16px;margin:8px 0;font-family:'Exo 2',sans-serif;font-size:0.88rem;color:#d8f0ff;max-width:85%;margin-left:auto;}
-.chat-bubble-ai{background:linear-gradient(135deg,rgba(170,51,255,0.1),rgba(0,229,255,0.06));border:1px solid rgba(170,51,255,0.2);border-radius:14px 14px 14px 2px;padding:12px 16px;margin:8px 0;font-family:'Exo 2',sans-serif;font-size:0.88rem;color:#d8f0ff;max-width:92%;}
-.chat-label-user{font-family:'Share Tech Mono';font-size:0.65rem;color:#0090cc;letter-spacing:1px;margin-bottom:4px;text-align:right;}
-.chat-label-ai{font-family:'Share Tech Mono';font-size:0.65rem;color:#aa33ff;letter-spacing:1px;margin-bottom:4px;}
 
 /* ALERTS */
 .alert-card-red{background:rgba(255,34,85,0.07);border:1px solid rgba(255,34,85,0.35);border-radius:12px;padding:14px 16px;margin:6px 0;animation:alert-pulse-red 2s infinite;}
@@ -397,128 +390,7 @@ def check_alerts(df_in, threshold=200):
             })
     return sorted(alerts, key=lambda x: x["aqi"], reverse=True)
 
-def get_ai_response(query):
-    q = query.lower()
-    
-    # City-specific responses
-    city_info = {
-        "delhi": "🏙️ Delhi's AQI is critically high, especially during winter (Oct–Jan) due to stubble burning, vehicular emissions, and thermal inversions. PM2.5 frequently exceeds 10× WHO limits. Recommend: N95 mask, air purifiers, avoid 7–11AM peak hours.",
-        "mumbai": "🌊 Mumbai generally has better air quality due to sea breezes, but industrial zones in Thane & Turbhe record PM10 > 200 µg/m³. Monsoon (Jun–Sep) dramatically improves AQI. Main concern: NO2 from vehicular traffic.",
-        "bangalore": "🌿 Bangalore historically had good air quality but rapid urbanization, construction dust, and vehicular growth have pushed AQI higher. Whitefield & Electronic City are hotspots. Tech corridor expansion is a key concern.",
-        "kolkata": "🏭 Kolkata faces pollution from industrial emissions (Howrah belt), vehicular traffic, and seasonal biomass burning. River breeze helps somewhat. Winter months see AQI spikes above 200.",
-        "chennai": "🌅 Chennai benefits from coastal winds keeping PM2.5 lower than North Indian cities. However, Manali industrial area and thermal plants are local hotspots. Cyclone season can temporarily worsen air quality.",
-    }
-    for city_key, info in city_info.items():
-        if city_key in q:
-            return info
 
-    # Check live data for any city name
-    for c in CITIES:
-        if c["name"].lower() in q:
-            df_cur = st.session_state.df
-            if df_cur is not None and c["name"] in df_cur["City"].values:
-                city_aqi = int(df_cur[df_cur["City"]==c["name"]]["AQI"].values[0])
-                label, color, _, advice = get_aqi_info(city_aqi)
-                tips = HEALTH_TIPS.get(label, [])
-                tip_text = "\n".join([f"• {t}" for t in tips])
-                return (f"📍 **{c['name']}, {c['state']}**\n\n"
-                        f"🌡️ Current AQI: **{city_aqi}** ({label})\n\n"
-                        f"⚠️ {advice}\n\n"
-                        f"💡 Health Tips:\n{tip_text}\n\n"
-                        f"📍 Location: {c['lat']}°N, {c['lon']}°E")
-
-    # Pollutant queries
-    if "pm2.5" in q or "pm 2.5" in q:
-        return "🔬 **PM2.5** — particles under 2.5 micrometers — are the most dangerous pollutant. They penetrate deep into lung tissue and enter the bloodstream directly.\n\n• India safe limit: 60 µg/m³ (24hr)\n• WHO guideline: 15 µg/m³\n• Sources: vehicle exhaust, industry, cooking smoke\n• Health effects: cardiovascular disease, lung cancer, premature death\n• Protection: N95/N99 masks, HEPA air purifiers"
-    if "pm10" in q:
-        return "🌫️ **PM10** are coarse particles (2.5–10 micrometers). Less dangerous than PM2.5 but still harmful.\n\n• India safe limit: 100 µg/m³\n• Sources: road dust, construction, industrial emissions\n• Effects: respiratory irritation, asthma triggers\n• Tip: Check daily AQI before outdoor activities"
-    if "no2" in q or "nitrogen" in q:
-        return "🚗 **NO2 (Nitrogen Dioxide)** primarily comes from vehicle exhaust and power plants.\n\n• India limit: 80 µg/m³\n• WHO guideline: 25 µg/m³\n• Effects: irritates airways, increases asthma risk\n• Peak hours: Morning & evening traffic rush (7-10AM, 5-8PM)"
-    if "so2" in q or "sulphur" in q or "sulfur" in q:
-        return "🏭 **SO2 (Sulfur Dioxide)** mainly comes from burning coal and industrial processes.\n\n• India limit: 80 µg/m³\n• Sources: thermal power plants, oil refineries, diesel engines\n• Effects: breathing difficulty, acid rain formation\n• Cities most affected: near industrial belts"
-    if "co" in q and "carbon" in q:
-        return "🔥 **CO (Carbon Monoxide)** is a colorless, odorless toxic gas from incomplete combustion.\n\n• India limit: 2.0 mg/m³\n• Sources: vehicles, generators, cooking fires\n• Danger: Binds with hemoglobin, reduces oxygen delivery\n• Indoors can be more dangerous than outdoors"
-    if "o3" in q or "ozone" in q:
-        return "☀️ **O3 (Ground-level Ozone)** forms from chemical reactions between NOx and VOCs in sunlight.\n\n• India limit: 100 µg/m³\n• Peak: Hot sunny afternoons (12PM–4PM)\n• Effects: chest tightness, throat irritation\n• Outdoor exercise should be avoided on high-ozone days"
-
-    # Intent queries
-    if any(w in q for w in ["worst","polluted","bad","dangerous","highest","toxic"]):
-        df_cur = st.session_state.df
-        if df_cur is not None:
-            worst = df_cur.nlargest(5,"AQI")[["City","State","AQI","Category"]].values
-            lines = "\n".join([f"  {i+1}. {r[0]} ({r[1]}): AQI **{r[2]}** — {r[3]}" for i,r in enumerate(worst)])
-            return f"☣️ **Top 5 Most Polluted Cities Right Now:**\n\n{lines}\n\n⚠️ Citizens in these cities should wear N95 masks and minimize outdoor exposure."
-
-    if any(w in q for w in ["best","clean","safe","lowest","good","pure","fresh"]):
-        df_cur = st.session_state.df
-        if df_cur is not None:
-            best = df_cur.nsmallest(5,"AQI")[["City","State","AQI","Category"]].values
-            lines = "\n".join([f"  {i+1}. {r[0]} ({r[1]}): AQI **{r[2]}** — {r[3]}" for i,r in enumerate(best)])
-            return f"🌿 **Top 5 Cleanest Cities Right Now:**\n\n{lines}\n\n✅ These cities have relatively safe air quality today."
-
-    if any(w in q for w in ["average","national","india","overall","country"]):
-        df_cur = st.session_state.df
-        if df_cur is not None:
-            avg = int(df_cur["AQI"].mean())
-            label,_,_,_ = get_aqi_info(avg)
-            safe_c = int((df_cur["AQI"]<=100).sum())
-            danger_c = int((df_cur["AQI"]>200).sum())
-            return (f"🌏 **National Air Quality Summary**\n\n"
-                    f"📊 Average AQI: **{avg}** ({label})\n"
-                    f"✅ Safe cities (AQI ≤ 100): **{safe_c}**\n"
-                    f"⚠️ High-risk cities (AQI > 200): **{danger_c}**\n"
-                    f"📍 Monitoring: {len(CITIES)} major cities\n\n"
-                    f"The Indo-Gangetic Plain cities consistently rank among the most polluted globally.")
-
-    if any(w in q for w in ["health","sick","disease","hospital","doctor","symptom","mask"]):
-        return ("🏥 **Air Pollution & Health Impact Guide**\n\n"
-                "**Short-term effects (hours/days):**\n"
-                "• Eye, nose, throat irritation\n• Coughing, sneezing\n• Shortness of breath\n• Headache, dizziness\n\n"
-                "**Long-term effects (years):**\n"
-                "• Chronic Obstructive Pulmonary Disease (COPD)\n• Asthma development/worsening\n"
-                "• Cardiovascular disease\n• Lung cancer risk\n• Reduced life expectancy\n\n"
-                "**Vulnerable groups:** Children, elderly, pregnant women, heart/lung patients\n\n"
-                "**Protection:** N95/N99 masks outdoors, HEPA air purifiers indoors, avoid peak traffic hours")
-
-    if any(w in q for w in ["forecast","predict","tomorrow","future","next","week"]):
-        return ("📈 **AQI Forecasting Methodology**\n\n"
-                "Modern AQI forecasting uses multiple data sources:\n"
-                "• 🌤️ Meteorological data (wind, humidity, temperature, rainfall)\n"
-                "• 🏭 Emission inventories from industries & vehicles\n"
-                "• 📡 Satellite remote sensing data\n"
-                "• 🤖 Machine learning models (LSTM, Random Forest)\n\n"
-                "**Seasonal patterns in India:**\n"
-                "• Winter (Oct–Jan): Worst — cold air traps pollutants near ground\n"
-                "• Summer (Mar–Jun): Moderate — dust storms increase PM10\n"
-                "• Monsoon (Jun–Sep): Best — rain washes away pollutants\n\n"
-                "Accuracy typically 80–90% for 24-hour forecasts.")
-
-    if any(w in q for w in ["tip","advice","protect","safe","precaution"]):
-        return ("💡 **Top Air Quality Protection Tips**\n\n"
-                "🏠 **Indoors:**\n"
-                "• Use HEPA air purifiers (look for CADR rating)\n"
-                "• Keep windows closed during high AQI days\n"
-                "• Use exhaust fans while cooking\n"
-                "• Avoid incense/candles when AQI is high\n\n"
-                "🚶 **Outdoors:**\n"
-                "• Wear N95 or N99 mask (not cloth masks)\n"
-                "• Avoid 7AM–11AM and 5PM–9PM (peak traffic)\n"
-                "• Exercise indoors when AQI > 150\n"
-                "• Check AQI app before outdoor plans\n\n"
-                "🌱 **Long-term:**\n"
-                "• Choose electric vehicles or public transport\n"
-                "• Plant air-purifying indoor plants\n"
-                "• Support clean energy initiatives")
-
-    return ("🤖 **AQI Intelligence Assistant Ready**\n\n"
-            "I can help you with:\n"
-            "• 📍 **City AQI** — Ask about any Indian city\n"
-            "• 🔬 **Pollutants** — PM2.5, PM10, NO2, SO2, CO, O3\n"
-            "• 🏥 **Health effects** — Short & long-term impacts\n"
-            "• 📈 **Forecasts** — Prediction methodology\n"
-            "• 💡 **Protection tips** — Stay safe advice\n"
-            "• 🌏 **National stats** — Overall India summary\n\n"
-            "Try: *'What is the AQI in Delhi?'* or *'Which cities are most polluted?'*")
 
 # ══════════════════════════════════════════════════════════════════
 # HELPERS
@@ -702,7 +574,7 @@ with st.sidebar:
 
     if st.button("🚪  LOGOUT", use_container_width=True, key="logout_btn"):
         # Clear session properly
-        for key in ["logged_in","current_user","auth_msg","login_anim","chat_history",
+        for key in ["logged_in","current_user","auth_msg","login_anim",
                     "alerts_log","df","live_aqi","live_city","live_history","nav_page"]:
             if key in st.session_state:
                 del st.session_state[key]
@@ -721,7 +593,7 @@ with st.sidebar:
     view_mode = st.radio("📡  NAVIGATION", [
         "🔴 Live Air Pollution","🗺️ Pollution Map","📊 City Comparison",
         "📈 Hourly Trend","🧪 Pollutant Breakdown","🏆 Rankings & Stats",
-        "🤖 AI Assistant","🔔 Alerts & Notifications",
+        "🔔 Alerts & Notifications",
         "🌡️ Weather & AQI Forecast","📸 Image Predictor",
         "📋 Data Export","👤 My Account",
     ], key="view_mode_radio")
@@ -1208,106 +1080,6 @@ elif "Rankings" in view_mode:
         apply_theme(fig_v, height=330, margin=dict(l=60,r=20,t=20,b=60), showlegend=False)
         fig_v.update_yaxes(title_text="AQI")
         st.plotly_chart(fig_v, use_container_width=True)
-
-# ── PAGE: AI ASSISTANT ───────────────────────────────────────────
-elif "AI Assistant" in view_mode:
-    st.markdown('<h2>🤖 AI POLLUTION INTELLIGENCE ASSISTANT</h2>', unsafe_allow_html=True)
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,rgba(170,51,255,0.07),rgba(0,229,255,0.05));
-        border:1px solid rgba(170,51,255,0.2);border-radius:14px;padding:14px 18px;margin-bottom:16px;">
-        <div style="font-family:Orbitron,sans-serif;font-size:0.8rem;color:#aa33ff;letter-spacing:2px;margin-bottom:6px;">🤖 AQI INTELLIGENCE ENGINE v4.0</div>
-        <div style="font-family:Exo 2,sans-serif;font-size:0.85rem;color:#8aa0ba;">
-        Ask about any city, pollutant, health effects, forecasts, tips, or say "worst cities" / "best cities" / "national average".</div>
-    </div>""", unsafe_allow_html=True)
-
-    # Quick query buttons
-    st.markdown('<div style="font-family:Share Tech Mono;font-size:0.68rem;color:#5a7a9a;letter-spacing:1px;margin-bottom:8px;">QUICK QUERIES:</div>', unsafe_allow_html=True)
-    qcols = st.columns(4)
-    quick_queries = [
-        "Worst polluted cities?","Delhi AQI & health tips",
-        "What is PM2.5?","Health protection tips"
-    ]
-    quick_keys = ["qbtn1","qbtn2","qbtn3","qbtn4"]
-    for i,(q,k) in enumerate(zip(quick_queries, quick_keys)):
-        with qcols[i]:
-            if st.button(q, key=k, use_container_width=True):
-                st.session_state.chat_history.append({"role":"user","text":q})
-                st.session_state.chat_history.append({"role":"ai","text":get_ai_response(q)})
-                st.rerun()
-
-    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-
-    # Chat display
-    chat_container = st.container()
-    with chat_container:
-        if not st.session_state.chat_history:
-            st.markdown(
-                '<div style="text-align:center;padding:40px 20px;background:rgba(0,229,255,0.02);'
-                'border:1px dashed rgba(0,229,255,0.1);border-radius:12px;">'
-                '<div style="font-size:2.5rem;margin-bottom:10px;">🤖</div>'
-                '<div style="font-family:Share Tech Mono;font-size:0.72rem;color:#4a6a8a;letter-spacing:2px;">AWAITING YOUR QUERY…</div>'
-                '</div>', unsafe_allow_html=True
-            )
-        for msg in st.session_state.chat_history:
-            if msg["role"] == "user":
-                st.markdown(f'<div class="chat-label-user">YOU</div><div class="chat-bubble-user">{msg["text"]}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="chat-label-ai">🤖 AQI AI</div><div class="chat-bubble-ai">{msg["text"]}</div>', unsafe_allow_html=True)
-
-    # Input row
-    chat_col1, chat_col2 = st.columns([4,1])
-    with chat_col1:
-        user_input = st.text_input("💬 Ask the AI…", key="ai_input",
-            placeholder="e.g. What is the AQI in Mumbai? / Which cities are safe today?")
-    with chat_col2:
-        st.markdown('<div style="height:28px;"></div>', unsafe_allow_html=True)
-        send_btn = st.button("📡 SEND", use_container_width=True, key="ai_send")
-
-    if send_btn and user_input.strip():
-        st.session_state.chat_history.append({"role":"user","text":user_input.strip()})
-        with st.spinner("🤖 Analyzing…"):
-            time.sleep(0.4)
-            response = get_ai_response(user_input.strip())
-        st.session_state.chat_history.append({"role":"ai","text":response})
-        st.rerun()
-
-    col_clear, col_export = st.columns(2)
-    with col_clear:
-        if st.button("🗑️ Clear Chat History", use_container_width=True, key="clear_chat"):
-            st.session_state.chat_history = []
-            st.rerun()
-    with col_export:
-        if st.session_state.chat_history:
-            chat_text = "\n".join([f"{'YOU' if m['role']=='user' else 'AI'}: {m['text']}" for m in st.session_state.chat_history])
-            st.download_button("⬇️ Export Chat Log", chat_text,
-                file_name=f"aqi_chat_{datetime.date.today()}.txt", mime="text/plain", use_container_width=True)
-
-    st.divider()
-    st.markdown('<div class="section-header">💡 AI GENERATED INSIGHTS</div>', unsafe_allow_html=True)
-    ins_col1, ins_col2, ins_col3 = st.columns(3)
-    worst3 = df.nlargest(3,"AQI")
-    best3  = df.nsmallest(3,"AQI")
-    with ins_col1:
-        st.markdown(
-            f'<div class="insight-red"><div style="font-family:Orbitron;font-size:0.72rem;color:#ff2255;letter-spacing:2px;margin-bottom:8px;">🚨 CRITICAL ZONE</div>'
-            f'<div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;"><b style="color:#ff2255;">{worst3.iloc[0]["City"]}</b> leads with AQI {worst3.iloc[0]["AQI"]} ({worst3.iloc[0]["Category"]}). '
-            f'{int((df["AQI"]>300).sum())} cities in danger zone.</div></div>',
-            unsafe_allow_html=True
-        )
-    with ins_col2:
-        st.markdown(
-            f'<div class="insight-green"><div style="font-family:Orbitron;font-size:0.72rem;color:#00ff88;letter-spacing:2px;margin-bottom:8px;">✅ CLEAN AIR</div>'
-            f'<div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;"><b style="color:#00ff88;">{best3.iloc[0]["City"]}</b> is the cleanest at AQI {best3.iloc[0]["AQI"]}. '
-            f'{safe_count} cities within safe limits.</div></div>',
-            unsafe_allow_html=True
-        )
-    with ins_col3:
-        trend_word = "improving 📉" if random.random()>0.5 else "worsening 📈"
-        st.markdown(
-            f'<div class="insight-blue"><div style="font-family:Orbitron;font-size:0.72rem;color:#00e5ff;letter-spacing:2px;margin-bottom:8px;">📈 TREND</div>'
-            f'<div style="font-family:Exo 2;font-size:0.82rem;color:#d8f0ff;">National avg AQI <b style="color:#00e5ff;">{avg_aqi}</b> ({avg_label}). Overall trend is {trend_word} vs last 24h.</div></div>',
-            unsafe_allow_html=True
-        )
 
 # ── PAGE: ALERTS ─────────────────────────────────────────────────
 elif "Alerts" in view_mode:
