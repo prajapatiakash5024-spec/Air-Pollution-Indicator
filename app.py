@@ -24,6 +24,65 @@ st.set_page_config(
 # ══════════════════════════════════════════════════════════════════
 # SESSION STATE INIT — always run before any logic
 # ══════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
+# PERSISTENT STORAGE — must be defined before init_session
+# ══════════════════════════════════════════════════════════════════
+import os, pathlib
+_DATA_DIR = pathlib.Path("aqi_data")
+_DATA_DIR.mkdir(exist_ok=True)
+_USERS_FILE      = _DATA_DIR / "users_db.json"
+_ATTENDANCE_FILE = _DATA_DIR / "attendance_log.json"
+
+def _hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
+
+def _load_users_db():
+    if _USERS_FILE.exists():
+        with open(_USERS_FILE, "r") as f:
+            return json.load(f)
+    demo = {
+        "demo@aqicommand.in": {
+            "name": "Demo Analyst",
+            "password_hash": _hash("Demo@1234"),
+            "role": "Analyst",
+            "joined": "2024-01-01",
+            "last_login": None,
+            "alerts_enabled": True,
+            "alert_threshold": 200,
+            "theme": "Cyber Blue",
+            "notifications": [],
+        }
+    }
+    _save_users_db(demo)
+    return demo
+
+def _save_users_db(db):
+    with open(_USERS_FILE, "w") as f:
+        json.dump(db, f, indent=2)
+
+def _load_attendance():
+    if _ATTENDANCE_FILE.exists():
+        with open(_ATTENDANCE_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def _save_attendance(log):
+    with open(_ATTENDANCE_FILE, "w") as f:
+        json.dump(log, f, indent=2)
+
+def _record_attendance(email, name, event="login"):
+    log = _load_attendance()
+    log.append({
+        "email": email,
+        "name": name,
+        "event": event,
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "date": datetime.date.today().isoformat(),
+    })
+    _save_attendance(log)
+
+# ══════════════════════════════════════════════════════════════════
+# SESSION STATE INIT
+# ══════════════════════════════════════════════════════════════════
 def init_session():
     defaults = {
         "logged_in": False,
@@ -45,22 +104,9 @@ def init_session():
         if k not in st.session_state:
             st.session_state[k] = v
 
-    # Users DB
+    # Users DB — loaded from disk so registrations survive restarts
     if "users_db" not in st.session_state:
-        demo_hash = hashlib.sha256("Demo@1234".encode()).hexdigest()
-        st.session_state.users_db = {
-            "demo@aqicommand.in": {
-                "name": "Demo Analyst",
-                "password_hash": demo_hash,
-                "role": "Analyst",
-                "joined": "2024-01-01",
-                "last_login": None,
-                "alerts_enabled": True,
-                "alert_threshold": 200,
-                "theme": "Cyber Blue",
-                "notifications": [],
-            }
-        }
+        st.session_state.users_db = _load_users_db()
 
 init_session()
 
@@ -477,7 +523,7 @@ def get_ai_response(query):
 # ══════════════════════════════════════════════════════════════════
 # HELPERS
 # ══════════════════════════════════════════════════════════════════
-def _hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
+import re
 def is_valid_email(e): return bool(re.match(r"^[^@]+@[^@]+\.[^@]+$", e))
 def is_strong_password(pw):
     return (len(pw)>=8 and re.search(r"[A-Z]",pw) and
@@ -533,6 +579,8 @@ def show_auth_screen():
                 else:
                     email = login_email.strip()
                     st.session_state.users_db[email]["last_login"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                    _save_users_db(st.session_state.users_db)   # persist last_login
+                    _record_attendance(email, st.session_state.users_db[email]["name"], "login")
                     st.session_state.logged_in = True
                     st.session_state.current_user = email
                     st.session_state.auth_msg = ("", "")
@@ -571,6 +619,8 @@ def show_auth_screen():
                         "last_login": None, "alerts_enabled": True,
                         "alert_threshold": 200, "theme": "Cyber Blue", "notifications": []
                     }
+                    _save_users_db(st.session_state.users_db)   # persist new user
+                    _record_attendance(reg_email, reg_name.strip(), "register")
                     st.session_state.auth_msg = (f"✅ Account created! Welcome, {reg_name.split()[0]}. Please login.", "success")
                     st.rerun()
 
@@ -1500,6 +1550,7 @@ elif "Account" in view_mode:
                 st.markdown('<div class="auth-error">❌ Passwords do not match.</div>', unsafe_allow_html=True)
             else:
                 st.session_state.users_db[st.session_state.current_user]["password_hash"] = _hash(new_pw)
+                _save_users_db(st.session_state.users_db)
                 st.markdown('<div class="auth-success">✅ Password updated successfully!</div>', unsafe_allow_html=True)
 
         st.divider()
@@ -1513,6 +1564,42 @@ elif "Account" in view_mode:
             f'<div class="hex-stat"><div class="hex-val" style="color:#ffaa00;">{dangerous}</div><div class="hex-lbl">High Risk Cities</div></div></div>',
             unsafe_allow_html=True
         )
+
+    # ── ATTENDANCE LOG ────────────────────────────────────────────
+    st.divider()
+    st.markdown('<h2>📋 ATTENDANCE LOG</h2>', unsafe_allow_html=True)
+    att_log = _load_attendance()
+    if att_log:
+        att_df = pd.DataFrame(att_log)
+        att_df = att_df.sort_values("timestamp", ascending=False).reset_index(drop=True)
+        att_df.columns = [c.upper() for c in att_df.columns]
+
+        # Summary metrics
+        ac1, ac2, ac3, ac4 = st.columns(4)
+        total_logins   = int((att_df["EVENT"] == "login").sum())
+        total_regs     = int((att_df["EVENT"] == "register").sum())
+        unique_users   = att_df["EMAIL"].nunique()
+        today_logins   = int((att_df[att_df["EVENT"]=="login"]["DATE"] == datetime.date.today().isoformat()).sum())
+        ac1.metric("Total Logins", total_logins)
+        ac2.metric("Registrations", total_regs)
+        ac3.metric("Unique Users", unique_users)
+        ac4.metric("Logins Today", today_logins)
+
+        # Full table
+        st.dataframe(
+            att_df[["TIMESTAMP","NAME","EMAIL","EVENT","DATE"]],
+            use_container_width=True, height=320
+        )
+
+        # Download
+        st.download_button(
+            "⬇️  Download Attendance CSV",
+            att_df.to_csv(index=False),
+            file_name=f"attendance_{datetime.date.today()}.csv",
+            mime="text/csv", use_container_width=True
+        )
+    else:
+        st.info("No attendance records yet. Records are created on each login and registration.")
 
 # ══════════════════════════════════════════════════════════════════
 # FOOTER
