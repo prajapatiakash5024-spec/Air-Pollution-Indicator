@@ -1,15 +1,5 @@
 streamlit
 pandas
 numpy
-scikit-learn
-joblib
 plotly
 Pillow
-geopandas
-matplotlib
-random
-time
-datetime
-json
-hashlib
-re
