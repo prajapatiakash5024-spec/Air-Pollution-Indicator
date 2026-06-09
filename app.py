@@ -1057,4 +1057,331 @@ elif "Rankings" in view_mode:
     corr_col, violin_col = st.columns(2)
     with corr_col:
         st.markdown('<div class="section-header">🔗 CORRELATION HEATMAP</div>', unsafe_allow_html=True)
-        corr = df[["AQI"]+POLLUTANTS].corr().ro
+        corr = df[["AQI"]+POLLUTANTS].corr().round(2)
+        fig_heat = go.Figure(go.Heatmap(
+            z=corr.values, x=list(corr.columns), y=list(corr.index),
+            colorscale=[[0,"#ff2255"],[0.5,"#0a1628"],[1,"#00ff88"]],
+            zmin=-1, zmax=1, text=corr.values.round(2),
+            texttemplate="%{text}", textfont=dict(size=11,family="Share Tech Mono"),
+            hovertemplate="%{x} × %{y}: %{z}<extra></extra>"
+        ))
+        apply_theme(fig_heat, height=330, margin=dict(l=80,r=20,t=20,b=60))
+        st.plotly_chart(fig_heat, use_container_width=True)
+    with violin_col:
+        st.markdown('<div class="section-header">🎻 AQI DISTRIBUTION</div>', unsafe_allow_html=True)
+        fig_v = go.Figure()
+        for lo,hi,label_v,color_v,emoji_v,_ in AQI_SCALE:
+            subset = df[df["Category"]==label_v]["AQI"]
+            if len(subset) > 0:
+                r_v,g_v,b_v = int(color_v[1:3],16),int(color_v[3:5],16),int(color_v[5:7],16)
+                fig_v.add_trace(go.Violin(y=subset, name=f"{emoji_v} {label_v}",
+                    fillcolor=f"rgba({r_v},{g_v},{b_v},0.25)", line_color=color_v,
+                    box_visible=True, meanline_visible=True, points="all"))
+        apply_theme(fig_v, height=330, margin=dict(l=60,r=20,t=20,b=60), showlegend=False)
+        fig_v.update_yaxes(title_text="AQI")
+        st.plotly_chart(fig_v, use_container_width=True)
+
+# ── PAGE: ALERTS ─────────────────────────────────────────────────
+elif "Alerts" in view_mode:
+    st.markdown('<h2>🔔 ALERTS & NOTIFICATIONS</h2>', unsafe_allow_html=True)
+    al_col1, al_col2 = st.columns([2,1])
+    with al_col1:
+        st.markdown(f'<div class="section-header">🚨 ACTIVE ALERTS ({len(active_alerts)} cities above AQI {alert_threshold_user})</div>', unsafe_allow_html=True)
+        if not active_alerts:
+            st.markdown('<div class="alert-card-green"><div style="font-family:Exo 2;color:#00ff88;">✅ No alerts active. All cities within your threshold.</div></div>', unsafe_allow_html=True)
+        for alert in active_alerts[:15]:
+            card_cls = "alert-card-red" if alert["level"]=="CRITICAL" else "alert-card-amber"
+            icon     = "🚨" if alert["level"]=="CRITICAL" else "⚠️"
+            st.markdown(
+                f'<div class="{card_cls}"><div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<div><span style="font-family:Orbitron,sans-serif;font-size:0.85rem;color:{alert["color"]};font-weight:700;">{icon} {alert["city"]}</span>'
+                f'<span style="font-family:Exo 2;font-size:0.78rem;color:#8aa0ba;margin-left:10px;">{alert["cat"]}</span></div>'
+                f'<div><span style="font-family:Orbitron,sans-serif;font-size:1.1rem;color:{alert["color"]};font-weight:900;">AQI {alert["aqi"]}</span>'
+                f'<span style="font-family:Share Tech Mono;font-size:0.62rem;color:#5a7a9a;margin-left:8px;">{alert["time"]}</span></div></div>'
+                f'<div style="font-family:Exo 2;font-size:0.75rem;color:#8aa0ba;margin-top:5px;">{get_aqi_info(alert["aqi"])[3]}</div></div>',
+                unsafe_allow_html=True
+            )
+    with al_col2:
+        st.markdown('<div class="section-header">⚙️ ALERT SETTINGS</div>', unsafe_allow_html=True)
+        new_threshold = st.slider("Alert Threshold AQI", 50, 400, alert_threshold_user, step=25, key="new_alert_threshold")
+        if new_threshold != alert_threshold_user:
+            st.session_state.users_db[st.session_state.current_user]["alert_threshold"] = new_threshold
+        alerts_on = st.toggle("Enable Alerts", value=user_info.get("alerts_enabled",True), key="alerts_enabled_toggle")
+        if alerts_on != user_info.get("alerts_enabled"):
+            st.session_state.users_db[st.session_state.current_user]["alerts_enabled"] = alerts_on
+        st.checkbox("Email Notifications", value=True,  key="notif_email")
+        st.checkbox("Browser Push",        value=False, key="notif_browser")
+        st.markdown(f'<div class="auth-info">📧 Alerts to<br><b style="color:#00e5ff;">{st.session_state.current_user}</b><br>when AQI &gt; {new_threshold}</div>', unsafe_allow_html=True)
+        critical_count = sum(1 for a in active_alerts if a["level"]=="CRITICAL")
+        warning_count  = sum(1 for a in active_alerts if a["level"]=="WARNING")
+        st.markdown(
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'
+            f'<div style="background:rgba(255,34,85,0.07);border:1px solid rgba(255,34,85,0.25);border-radius:10px;padding:12px;text-align:center;">'
+            f'<div style="font-family:Orbitron;font-size:1.4rem;color:#ff2255;font-weight:900;">{critical_count}</div>'
+            f'<div style="font-family:Exo 2;font-size:0.68rem;color:#5a7a9a;text-transform:uppercase;margin-top:3px;">Critical</div></div>'
+            f'<div style="background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.25);border-radius:10px;padding:12px;text-align:center;">'
+            f'<div style="font-family:Orbitron;font-size:1.4rem;color:#ffaa00;font-weight:900;">{warning_count}</div>'
+            f'<div style="font-family:Exo 2;font-size:0.68rem;color:#5a7a9a;text-transform:uppercase;margin-top:3px;">Warning</div></div></div>',
+            unsafe_allow_html=True
+        )
+
+    st.divider()
+    fig_hist = go.Figure(go.Histogram(x=df["AQI"], nbinsx=25,
+        marker_color="#00e5ff", marker_line_color="rgba(0,229,255,0.5)",
+        marker_line_width=1, opacity=0.7, hovertemplate="AQI Range: %{x}<br>Cities: %{y}<extra></extra>"))
+    fig_hist.add_vline(x=new_threshold, line_dash="dash", line_color="#ff2255",
+        annotation_text=f"Alert Threshold ({new_threshold})",
+        annotation_font_color="#ff2255", annotation_font_size=11)
+    apply_theme(fig_hist, height=260)
+    fig_hist.update_xaxes(title_text="AQI Value")
+    fig_hist.update_yaxes(title_text="Number of Cities")
+    st.plotly_chart(fig_hist, use_container_width=True)
+
+# ── PAGE: WEATHER ────────────────────────────────────────────────
+elif "Weather" in view_mode:
+    st.markdown('<h2>🌡️ WEATHER & AQI FORECAST</h2>', unsafe_allow_html=True)
+    wc1, wc2 = st.columns(2)
+    fcity = wc1.selectbox("Select City", [c["name"] for c in CITIES], key="wcity")
+    fdays = wc2.slider("Forecast Days", 3, 14, 7, key="fdays")
+    city_aqi = int(df[df["City"]==fcity]["AQI"].values[0])
+    dates    = [datetime.date.today() + datetime.timedelta(days=i) for i in range(fdays)]
+    aqi_fc   = [max(10,min(500, city_aqi+random.randint(-80,80))) for _ in range(fdays)]
+    temp_fc  = [random.randint(28,42) for _ in range(fdays)]
+    humid_fc = [random.randint(30,80) for _ in range(fdays)]
+    wind_fc  = [random.uniform(3,25)  for _ in range(fdays)]
+    d_labels = [d.strftime("%b %d") for d in dates]
+    fig_fc2  = make_subplots(rows=3, cols=1, shared_xaxes=True,
+        subplot_titles=["AQI Forecast","Temperature (°C)","Humidity (%)"], vertical_spacing=0.08)
+    fc_colors = [get_aqi_info(v)[1] for v in aqi_fc]
+    fig_fc2.add_trace(go.Bar(x=d_labels, y=aqi_fc, marker_color=fc_colors, name="AQI",
+        hovertemplate="%{x}: AQI %{y}<extra></extra>"), row=1, col=1)
+    fig_fc2.add_trace(go.Scatter(x=d_labels, y=temp_fc, mode="lines+markers",
+        line=dict(color="#ff6600",width=2.5), marker=dict(size=7,color="#ff6600"), name="Temp °C"), row=2, col=1)
+    fig_fc2.add_trace(go.Bar(x=d_labels, y=humid_fc,
+        marker_color=[f"rgba(0,112,255,{0.35+h/200})" for h in humid_fc], name="Humidity %"), row=3, col=1)
+    apply_theme(fig_fc2, height=580, showlegend=False,
+        title=dict(text=f"Forecast · {fcity}", font=dict(family="Orbitron",color="#00e5ff",size=13)))
+    for i in range(1,4):
+        fig_fc2.update_xaxes(gridcolor="rgba(0,229,255,0.06)",linecolor="rgba(0,229,255,0.12)", row=i, col=1)
+        fig_fc2.update_yaxes(gridcolor="rgba(0,229,255,0.06)",linecolor="rgba(0,229,255,0.12)", row=i, col=1)
+    st.plotly_chart(fig_fc2, use_container_width=True)
+    st.divider()
+    forecast_df = pd.DataFrame({
+        "Date": d_labels, "AQI": aqi_fc,
+        "Category": [get_aqi_info(v)[0] for v in aqi_fc],
+        "Temp (°C)": temp_fc, "Humidity (%)": humid_fc,
+        "Wind (km/h)": [round(w,1) for w in wind_fc]
+    })
+    st.dataframe(forecast_df.style.background_gradient(subset=["AQI"], cmap="RdYlGn_r"),
+        use_container_width=True, hide_index=True)
+
+# ── PAGE: IMAGE PREDICTOR ────────────────────────────────────────
+elif "Image" in view_mode:
+    try:
+        from PIL import Image as PILImage
+        pil_available = True
+    except ImportError:
+        pil_available = False
+
+    st.markdown('<h2>📸 IMAGE-BASED AIR QUALITY PREDICTOR</h2>', unsafe_allow_html=True)
+    up_col, result_col = st.columns([1,1])
+    with up_col:
+        uploaded_file = st.file_uploader("Upload sky/outdoor image (JPG / PNG)", type=["jpg","jpeg","png"])
+        if uploaded_file and pil_available:
+            img = PILImage.open(uploaded_file)
+            st.image(img, caption="📷 Uploaded Image", use_container_width=True)
+        elif uploaded_file and not pil_available:
+            st.image(uploaded_file, caption="📷 Uploaded Image", use_container_width=True)
+    with result_col:
+        if uploaded_file:
+            if st.button("🔍  ANALYZE IMAGE", use_container_width=True, key="analyze_img"):
+                with st.spinner("🛰️ Analyzing visual haze and particulate density…"):
+                    time.sleep(1.5)
+                pollution = random.randint(1,100)
+                aqi_equiv = int(pollution * 5)
+                p_label, p_color, p_emoji, p_advice = get_aqi_info(aqi_equiv)
+                st.markdown(
+                    f'<div class="aqi-live-card" style="border-color:{p_color}44;">'
+                    f'<div style="font-family:Share Tech Mono;font-size:0.7rem;color:#5a7a9a;letter-spacing:2px;margin-bottom:8px;">VISUAL HAZE ANALYSIS</div>'
+                    f'<div class="aqi-number" style="color:{p_color};text-shadow:0 0 30px {p_color}80;">{pollution}%</div>'
+                    f'<div class="aqi-label-text" style="color:{p_color};">{p_emoji} {p_label}</div>'
+                    f'<div style="font-family:Exo 2;font-size:0.8rem;color:#8aa0ba;margin-top:8px;">Estimated AQI Equivalent: <b style="color:{p_color};">{aqi_equiv}</b></div>'
+                    f'<div style="margin-top:12px;font-family:Exo 2;font-size:0.8rem;color:#d8f0ff;">{p_advice}</div></div>',
+                    unsafe_allow_html=True
+                )
+                st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div class="section-header">🔬 VISUAL BREAKDOWN</div>', unsafe_allow_html=True)
+                metrics = {
+                    "Haze Index": random.randint(20,90),
+                    "Visibility Score": random.randint(10,95),
+                    "Particulate Density": random.randint(15,85),
+                    "Sky Clarity": random.randint(5,80)
+                }
+                for k,v in metrics.items():
+                    col_m = "#00ff88" if v<40 else "#ffaa00" if v<70 else "#ff2255"
+                    st.markdown(
+                        f'<div style="padding:8px 12px;margin:4px 0;background:rgba(0,229,255,0.03);border-radius:8px;">'
+                        f'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+                        f'<span style="font-family:Exo 2;font-size:0.8rem;color:#d8f0ff;">{k}</span>'
+                        f'<span style="font-family:Share Tech Mono;font-size:0.78rem;color:{col_m};">{v}%</span></div>'
+                        f'<div style="background:rgba(0,0,0,0.3);border-radius:4px;height:4px;">'
+                        f'<div style="width:{v}%;height:100%;background:{col_m};border-radius:4px;"></div></div></div>',
+                        unsafe_allow_html=True
+                    )
+        else:
+            st.markdown(
+                '<div style="text-align:center;padding:60px 20px;background:rgba(0,229,255,0.03);'
+                'border:1px dashed rgba(0,229,255,0.18);border-radius:12px;font-family:Exo 2;">'
+                '<div style="font-size:3rem;margin-bottom:12px;">📷</div>'
+                '<div style="color:#5a7a9a;font-size:0.88rem;">Upload a sky or outdoor image<br>to begin visual haze analysis</div></div>',
+                unsafe_allow_html=True
+            )
+
+# ── PAGE: DATA EXPORT ────────────────────────────────────────────
+elif "Export" in view_mode:
+    st.markdown('<h2>📋 DATA EXPORT & REPORT</h2>', unsafe_allow_html=True)
+    exp_col1, exp_col2 = st.columns(2)
+    with exp_col1:
+        st.markdown('<div class="section-header">📥 EXPORT OPTIONS</div>', unsafe_allow_html=True)
+        st.download_button("⬇️  Full Dataset (CSV)",
+            df[["City","State","AQI","Category"]+POLLUTANTS].to_csv(index=False),
+            file_name=f"india_aqi_{datetime.date.today()}.csv", mime="text/csv", use_container_width=True)
+        st.download_button("⬇️  Top 10 Polluted (CSV)",
+            df.nlargest(10,"AQI")[["City","State","AQI","Category"]+POLLUTANTS].to_csv(index=False),
+            file_name=f"top10_polluted_{datetime.date.today()}.csv", mime="text/csv", use_container_width=True)
+        st.download_button("⬇️  Safe Cities (CSV)",
+            df[df["AQI"]<=100][["City","State","AQI","Category"]+POLLUTANTS].to_csv(index=False),
+            file_name=f"safe_cities_{datetime.date.today()}.csv", mime="text/csv", use_container_width=True)
+        json_data = df[["City","State","AQI","Category"]+POLLUTANTS].to_json(orient="records", indent=2)
+        st.download_button("⬇️  Full Dataset (JSON)", json_data,
+            file_name=f"india_aqi_{datetime.date.today()}.json", mime="application/json", use_container_width=True)
+    with exp_col2:
+        st.markdown('<div class="section-header">📊 DATA SUMMARY</div>', unsafe_allow_html=True)
+        summary = df[["AQI"]+POLLUTANTS].describe().round(2)
+        st.dataframe(summary.style.background_gradient(cmap="Blues"), use_container_width=True)
+
+    st.divider()
+    sc1, sc2 = st.columns(2)
+    search_city = sc1.text_input("🔎 Search city…", placeholder="Type a city name", key="search_city_export")
+    cat_filter  = sc2.multiselect("Filter by Category", ["Good","Satisfactory","Moderate","Poor","Very Poor","Severe"], key="cat_filter_export")
+    display_df  = df.copy()
+    if search_city: display_df = display_df[display_df["City"].str.contains(search_city, case=False)]
+    if cat_filter:  display_df = display_df[display_df["Category"].isin(cat_filter)]
+    st.dataframe(
+        display_df[["City","State","AQI","Category"]+POLLUTANTS]
+        .sort_values("AQI", ascending=False).reset_index(drop=True)
+        .style.background_gradient(subset=["AQI"], cmap="RdYlGn_r"),
+        use_container_width=True, height=420
+    )
+
+# ── PAGE: MY ACCOUNT ─────────────────────────────────────────────
+elif "Account" in view_mode:
+    st.markdown('<h2>👤 MY ACCOUNT</h2>', unsafe_allow_html=True)
+    u = st.session_state.users_db[st.session_state.current_user]
+    acc_col1, acc_col2 = st.columns([1,1])
+    with acc_col1:
+        initials_acc = "".join([w[0].upper() for w in u["name"].split()[:2]])
+        st.markdown(
+            f'<div style="background:linear-gradient(135deg,#071020,#0c1a2e);border:1px solid rgba(0,229,255,0.2);'
+            f'border-radius:16px;padding:28px;text-align:center;margin-bottom:16px;">'
+            f'<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#0070ff,#00e5ff);'
+            f'display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif;'
+            f'font-size:1.6rem;font-weight:700;color:#030b18;margin:0 auto 16px;">{initials_acc}</div>'
+            f'<div style="font-family:Orbitron,sans-serif;font-size:1.15rem;color:#00e5ff;font-weight:700;">{u["name"]}</div>'
+            f'<div style="font-family:Share Tech Mono,monospace;font-size:0.7rem;color:#5a7a9a;margin:5px 0;">{st.session_state.current_user}</div>'
+            f'<div style="display:inline-block;background:rgba(0,255,136,0.08);border:1px solid #00ff88;border-radius:20px;'
+            f'padding:4px 14px;font-family:Exo 2,sans-serif;font-size:0.73rem;color:#00ff88;margin-top:6px;">⬡ {u["role"]}</div>'
+            f'<div style="margin-top:14px;font-family:Share Tech Mono;font-size:0.62rem;color:#2a4a6a;">'
+            f'Member since: {u["joined"]}<br>Last login: {u.get("last_login") or "This session"}</div></div>',
+            unsafe_allow_html=True
+        )
+        alerts_t = st.toggle("Enable AQI Alerts", value=u.get("alerts_enabled",True), key="alerts_toggle")
+        if alerts_t != u.get("alerts_enabled"):
+            st.session_state.users_db[st.session_state.current_user]["alerts_enabled"] = alerts_t
+        alert_threshold = st.slider("Alert when AQI exceeds", 100, 400, u.get("alert_threshold",200),
+            step=50, key="alert_threshold_acc")
+        if alert_threshold != u.get("alert_threshold"):
+            st.session_state.users_db[st.session_state.current_user]["alert_threshold"] = alert_threshold
+        st.markdown(f'<div class="auth-info">📧 Alerts to <b>{st.session_state.current_user}</b> when AQI &gt; {alert_threshold}</div>', unsafe_allow_html=True)
+
+    with acc_col2:
+        st.markdown('<div class="section-header">🔑 CHANGE PASSWORD</div>', unsafe_allow_html=True)
+        with st.form("change_pw_form"):
+            old_pw  = st.text_input("Current Password",  type="password", key="chg_old")
+            new_pw  = st.text_input("New Password",       type="password", key="chg_new")
+            new_pw2 = st.text_input("Confirm New Password", type="password", key="chg_new2")
+            pw_submitted = st.form_submit_button("🔄  UPDATE PASSWORD", use_container_width=True)
+        if pw_submitted:
+            if not old_pw or not new_pw or not new_pw2:
+                st.markdown('<div class="auth-error">⚠️ Fill all password fields.</div>', unsafe_allow_html=True)
+            elif st.session_state.users_db[st.session_state.current_user]["password_hash"] != _hash(old_pw):
+                st.markdown('<div class="auth-error">❌ Current password is incorrect.</div>', unsafe_allow_html=True)
+            elif not is_strong_password(new_pw):
+                st.markdown('<div class="auth-error">❌ Password too weak (uppercase + number + symbol required).</div>', unsafe_allow_html=True)
+            elif new_pw != new_pw2:
+                st.markdown('<div class="auth-error">❌ Passwords do not match.</div>', unsafe_allow_html=True)
+            else:
+                st.session_state.users_db[st.session_state.current_user]["password_hash"] = _hash(new_pw)
+                _save_users_db(st.session_state.users_db)
+                st.markdown('<div class="auth-success">✅ Password updated successfully!</div>', unsafe_allow_html=True)
+
+        st.divider()
+        st.markdown('<div class="section-header">📊 SESSION STATS</div>', unsafe_allow_html=True)
+        total_users = len(st.session_state.users_db)
+        st.markdown(
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">'
+            f'<div class="hex-stat"><div class="hex-val" style="color:#00e5ff;">{total_users}</div><div class="hex-lbl">Registered Users</div></div>'
+            f'<div class="hex-stat"><div class="hex-val" style="color:#00ff88;">{len(CITIES)}</div><div class="hex-lbl">Cities Monitored</div></div>'
+            f'<div class="hex-stat"><div class="hex-val" style="color:#aa33ff;">{avg_aqi}</div><div class="hex-lbl">National Avg AQI</div></div>'
+            f'<div class="hex-stat"><div class="hex-val" style="color:#ffaa00;">{dangerous}</div><div class="hex-lbl">High Risk Cities</div></div></div>',
+            unsafe_allow_html=True
+        )
+
+    # ── ATTENDANCE LOG ────────────────────────────────────────────
+    st.divider()
+    st.markdown('<h2>📋 ATTENDANCE LOG</h2>', unsafe_allow_html=True)
+    att_log = _load_attendance()
+    if att_log:
+        att_df = pd.DataFrame(att_log)
+        att_df = att_df.sort_values("timestamp", ascending=False).reset_index(drop=True)
+        att_df.columns = [c.upper() for c in att_df.columns]
+
+        # Summary metrics
+        ac1, ac2, ac3, ac4 = st.columns(4)
+        total_logins   = int((att_df["EVENT"] == "login").sum())
+        total_regs     = int((att_df["EVENT"] == "register").sum())
+        unique_users   = att_df["EMAIL"].nunique()
+        today_logins   = int((att_df[att_df["EVENT"]=="login"]["DATE"] == datetime.date.today().isoformat()).sum())
+        ac1.metric("Total Logins", total_logins)
+        ac2.metric("Registrations", total_regs)
+        ac3.metric("Unique Users", unique_users)
+        ac4.metric("Logins Today", today_logins)
+
+        # Full table
+        st.dataframe(
+            att_df[["TIMESTAMP","NAME","EMAIL","EVENT","DATE"]],
+            use_container_width=True, height=320
+        )
+
+        # Download
+        st.download_button(
+            "⬇️  Download Attendance CSV",
+            att_df.to_csv(index=False),
+            file_name=f"attendance_{datetime.date.today()}.csv",
+            mime="text/csv", use_container_width=True
+        )
+    else:
+        st.info("No attendance records yet. Records are created on each login and registration.")
+
+# ══════════════════════════════════════════════════════════════════
+# FOOTER
+# ══════════════════════════════════════════════════════════════════
+st.divider()
+st.markdown(
+    f'<div style="display:flex;justify-content:space-between;align-items:center;font-family:Share Tech Mono,monospace;'
+    f'font-size:0.7rem;color:#4a6a8a;padding:6px 0;">'
+    f'<span>🛰️ INDIA AQI COMMAND CENTER v4.0</span>'
+    f'<span>👤 Logged in as <b style="color:#00e5ff;">{user_info["name"]}</b></span>'
+    f'<span>Built with Streamlit · Plotly · Python</span></div>',
+    unsafe_allow_html=True
+)
