@@ -38,7 +38,17 @@ def _hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
 def _load_users_db():
     if _USERS_FILE.exists():
         with open(_USERS_FILE, "r") as f:
-            return json.load(f)
+            db = json.load(f)
+        # Migration: purane users mein is_admin field nahi hogi
+        changed = False
+        for email, udata in db.items():
+            if "is_admin" not in udata:
+                # demo account ko admin, baki sab ko normal user
+                udata["is_admin"] = (email == "demo@aqicommand.in")
+                changed = True
+        if changed:
+            _save_users_db(db)
+        return db
     demo = {
         "demo@aqicommand.in": {
             "name": "Demo Analyst",
@@ -50,6 +60,7 @@ def _load_users_db():
             "alert_threshold": 200,
             "theme": "Cyber Blue",
             "notifications": [],
+            "is_admin": True,
         }
     }
     _save_users_db(demo)
@@ -489,7 +500,8 @@ def show_auth_screen():
                         "name": reg_name.strip(), "password_hash": _hash(reg_pw),
                         "role": reg_role, "joined": datetime.date.today().isoformat(),
                         "last_login": None, "alerts_enabled": True,
-                        "alert_threshold": 200, "theme": "Cyber Blue", "notifications": []
+                        "alert_threshold": 200, "theme": "Cyber Blue", "notifications": [],
+                        "is_admin": False,
                     }
                     _save_users_db(st.session_state.users_db)   # persist new user
                     _record_attendance(reg_email, reg_name.strip(), "register")
@@ -1339,39 +1351,43 @@ elif "Account" in view_mode:
 
     # ── ATTENDANCE LOG ────────────────────────────────────────────
     st.divider()
-    st.markdown('<h2>📋 ATTENDANCE LOG</h2>', unsafe_allow_html=True)
-    att_log = _load_attendance()
-    if att_log:
-        att_df = pd.DataFrame(att_log)
-        att_df = att_df.sort_values("timestamp", ascending=False).reset_index(drop=True)
-        att_df.columns = [c.upper() for c in att_df.columns]
 
-        # Summary metrics
-        ac1, ac2, ac3, ac4 = st.columns(4)
-        total_logins   = int((att_df["EVENT"] == "login").sum())
-        total_regs     = int((att_df["EVENT"] == "register").sum())
-        unique_users   = att_df["EMAIL"].nunique()
-        today_logins   = int((att_df[att_df["EVENT"]=="login"]["DATE"] == datetime.date.today().isoformat()).sum())
-        ac1.metric("Total Logins", total_logins)
-        ac2.metric("Registrations", total_regs)
-        ac3.metric("Unique Users", unique_users)
-        ac4.metric("Logins Today", today_logins)
+    # Sirf Admin ko Attendance Log dikhao
+    is_admin = st.session_state.users_db[st.session_state.current_user].get("is_admin", False)
+    if is_admin:
+        st.markdown('<h2>📋 ATTENDANCE LOG</h2>', unsafe_allow_html=True)
+        att_log = _load_attendance()
+        if att_log:
+            att_df = pd.DataFrame(att_log)
+            att_df = att_df.sort_values("timestamp", ascending=False).reset_index(drop=True)
+            att_df.columns = [c.upper() for c in att_df.columns]
 
-        # Full table
-        st.dataframe(
-            att_df[["TIMESTAMP","NAME","EMAIL","EVENT","DATE"]],
-            use_container_width=True, height=320
-        )
+            # Summary metrics
+            ac1, ac2, ac3, ac4 = st.columns(4)
+            total_logins   = int((att_df["EVENT"] == "login").sum())
+            total_regs     = int((att_df["EVENT"] == "register").sum())
+            unique_users   = att_df["EMAIL"].nunique()
+            today_logins   = int((att_df[att_df["EVENT"]=="login"]["DATE"] == datetime.date.today().isoformat()).sum())
+            ac1.metric("Total Logins", total_logins)
+            ac2.metric("Registrations", total_regs)
+            ac3.metric("Unique Users", unique_users)
+            ac4.metric("Logins Today", today_logins)
 
-        # Download
-        st.download_button(
-            "⬇️  Download Attendance CSV",
-            att_df.to_csv(index=False),
-            file_name=f"attendance_{datetime.date.today()}.csv",
-            mime="text/csv", use_container_width=True
-        )
-    else:
-        st.info("No attendance records yet. Records are created on each login and registration.")
+            # Full table
+            st.dataframe(
+                att_df[["TIMESTAMP","NAME","EMAIL","EVENT","DATE"]],
+                use_container_width=True, height=320
+            )
+
+            # Download
+            st.download_button(
+                "⬇️  Download Attendance CSV",
+                att_df.to_csv(index=False),
+                file_name=f"attendance_{datetime.date.today()}.csv",
+                mime="text/csv", use_container_width=True
+            )
+        else:
+            st.info("No attendance records yet. Records are created on each login and registration.")
 
 # ══════════════════════════════════════════════════════════════════
 # FOOTER
