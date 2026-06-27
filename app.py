@@ -626,7 +626,7 @@ def show_auth_screen():
                         st.session_state.fp_email = fe
                         st.session_state.fp_step  = 2
                         st.session_state.fp_msg   = (
-                            f"✅ OTP sent to {fe[:3]}***{fe[fe.index('@'):]}.  "
+                            f"✅ OTP sent to {fe[:3]}*{fe[fe.index('@'):]}.  "
                             f"Valid for 10 minutes.",
                             "success"
                         )
@@ -635,7 +635,7 @@ def show_auth_screen():
             # ── STEP 2: Enter OTP + new password ──
             elif st.session_state.fp_step == 2:
                 fp_email_display = st.session_state.fp_email
-                masked = fp_email_display[:3] + "***" + fp_email_display[fp_email_display.index("@"):]
+                masked = fp_email_display[:3] + "*" + fp_email_display[fp_email_display.index("@"):]
 
                 # Show OTP hint for demo (remove in production)
                 otp_hint = ""
@@ -647,11 +647,11 @@ def show_auth_screen():
                         f'<div class="otp-box">'
                         f'<div class="otp-sent-badge">📨 OTP SENT TO {masked}</div>'
                         f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;margin-bottom:10px;">'
-                        f'⏱ Expires in <b style="color:#ffaa00;">{mins_left} min</b></div>'
+                        f'⏱️ Expires in <b style="color:#ffaa00;">{mins_left} min</b></div>'
                         f'<div style="font-family:Share Tech Mono;font-size:0.72rem;color:#2a4a6a;'
                         f'background:rgba(0,0,0,0.3);border-radius:8px;padding:8px 12px;'
                         f'border:1px dashed rgba(0,229,255,0.1);">'
-                        f'🛠 DEV MODE · OTP: <span style="color:#ffaa00;font-size:1.1rem;'
+                        f'🛠️ DEV MODE · OTP: <span style="color:#ffaa00;font-size:1.1rem;'
                         f'letter-spacing:4px;">{otp_hint}</span><br>'
                         f'<span style="color:#2a4a6a;font-size:0.62rem;">'
                         f'Remove this block in production</span></div>'
@@ -688,7 +688,7 @@ def show_auth_screen():
                     with col_reset:
                         reset_btn = st.form_submit_button("🔐  RESET PASSWORD", use_container_width=True)
                     with col_back:
-                        back_btn  = st.form_submit_button("↩  BACK", use_container_width=True)
+                        back_btn  = st.form_submit_button("↩️  BACK", use_container_width=True)
 
                 if back_btn:
                     st.session_state.fp_step = 1
