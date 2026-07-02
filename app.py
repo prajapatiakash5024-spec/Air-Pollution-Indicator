@@ -1,4 +1,4 @@
-jimport streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 import random
@@ -10,6 +10,14 @@ import re
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+# ══════════════════════════════════════════════════════════════════
+# IST TIMEZONE
+# ══════════════════════════════════════════════════════════════════
+IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+def get_ist_now():
+    return datetime.datetime.now(IST)
 
 # ══════════════════════════════════════════════════════════════════
 # PAGE CONFIG — must be FIRST
@@ -81,8 +89,8 @@ def _record_attendance(email, name, event="login"):
         "email": email,
         "name": name,
         "event": event,
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "date": datetime.date.today().isoformat(),
+        "timestamp": get_ist_now().strftime("%Y-%m-%d %H:%M:%S IST"),
+        "date": get_ist_now().date().isoformat(),
     })
     _save_attendance(log)
 
@@ -96,59 +104,19 @@ def _generate_otp():
     return str(random.randint(100000, 999999))
 
 def _send_reset_email(email: str, otp: str, name: str) -> bool:
-    """
-    Stores OTP in session state (valid 10 min).
-    ── PRODUCTION ── Replace body with smtplib / SendGrid / Mailgun / AWS SES.
-    """
     st.session_state.reset_tokens[email] = {
         "otp": otp,
-        "expires": datetime.datetime.now() + datetime.timedelta(minutes=10),
+        "expires": get_ist_now() + datetime.timedelta(minutes=10),
         "name": name,
     }
-    # ---- Uncomment & configure for real email delivery ----
-    # import smtplib
-    # from email.mime.multipart import MIMEMultipart
-    # from email.mime.text import MIMEText
-    # SMTP_HOST = "smtp.gmail.com"
-    # SMTP_PORT = 587
-    # SMTP_USER = "your_email@gmail.com"
-    # SMTP_PASS = "your_app_password"
-    # html_body = f"""
-    # <div style="font-family:Arial,sans-serif;background:#030b18;color:#d8f0ff;padding:32px;border-radius:12px;">
-    #   <h2 style="color:#00e5ff;">🛰️ AQI Command Center</h2>
-    #   <p>Hi {name},</p>
-    #   <p>Your password reset OTP is:</p>
-    #   <div style="font-size:2.4rem;font-weight:900;letter-spacing:10px;color:#00e5ff;
-    #               background:#071020;padding:18px 28px;border-radius:10px;display:inline-block;">
-    #     {otp}
-    #   </div>
-    #   <p style="color:#5a7a9a;font-size:0.85rem;margin-top:18px;">
-    #     Valid for <b>10 minutes</b>. Do not share this code with anyone.
-    #   </p>
-    # </div>"""
-    # msg = MIMEMultipart("alternative")
-    # msg["Subject"] = "AQI Command Center — Password Reset OTP"
-    # msg["From"]    = f"AQI Command <{SMTP_USER}>"
-    # msg["To"]      = email
-    # msg.attach(MIMEText(html_body, "html"))
-    # try:
-    #     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
-    #         s.starttls()
-    #         s.login(SMTP_USER, SMTP_PASS)
-    #         s.send_message(msg)
-    #     return True
-    # except Exception as e:
-    #     print(f"[EMAIL ERROR] {e}")
-    #     return False
     print(f"[DEV] OTP for {email}: {otp}")
     return True
 
 def _verify_otp(email: str, otp_input: str) -> tuple:
-    """Returns (success, message)."""
     token = st.session_state.reset_tokens.get(email)
     if not token:
         return False, "No reset request found. Please request OTP again."
-    if datetime.datetime.now() > token["expires"]:
+    if get_ist_now() > token["expires"]:
         del st.session_state.reset_tokens[email]
         return False, "OTP has expired. Please request a new one."
     if token["otp"] != otp_input.strip():
@@ -169,11 +137,10 @@ def init_session():
         "live_aqi": 142,
         "live_city": "Mumbai",
         "live_history": [142],
-        "last_refresh": datetime.datetime.now(),
+        "last_refresh": get_ist_now(),
         "auto_refresh": False,
         "compare_cities": [],
         "nav_page": "🔴 Live Air Pollution",
-        # Forgot password flow state
         "fp_step": 1,
         "fp_email": "",
         "fp_msg": ("", ""),
@@ -223,23 +190,19 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .stTextInput input:focus{border-color:#00e5ff!important;box-shadow:0 0 14px rgba(0,229,255,0.2)!important;}
 .stTextInput label{color:#5a7a9a!important;font-family:'Exo 2',sans-serif!important;font-size:0.78rem!important;letter-spacing:1px!important;}
 .stTextArea textarea{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(0,229,255,0.2)!important;border-radius:10px!important;color:#d8f0ff!important;font-family:'Exo 2',sans-serif!important;}
-/* LIVE BADGE */
 .live-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,136,0.08);border:1px solid #00ff88;border-radius:20px;padding:4px 14px;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:#00ff88;letter-spacing:1.5px;animation:pulse-live 2s infinite;}
 @keyframes pulse-live{0%,100%{box-shadow:0 0 6px rgba(0,255,136,0.3);}50%{box-shadow:0 0 18px rgba(0,255,136,0.7);}}
 .dot-live{width:7px;height:7px;background:#00ff88;border-radius:50%;animation:blink 1.2s infinite;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.1;}}
-/* CARDS */
 .aqi-live-card{background:linear-gradient(135deg,#0a1628,#122040);border:1px solid rgba(0,229,255,0.25);border-radius:16px;padding:20px;text-align:center;position:relative;overflow:hidden;}
 .aqi-number{font-family:'Orbitron',monospace;font-size:3.2rem;font-weight:900;line-height:1;}
 .aqi-label-text{font-family:'Exo 2',sans-serif;font-size:1rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
 .health-advice{background:linear-gradient(135deg,rgba(0,229,255,0.04),rgba(0,112,255,0.04));border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:16px;font-family:'Exo 2',sans-serif;font-size:0.9rem;line-height:1.6;}
 .section-header{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700;color:#00e5ff;letter-spacing:2px;text-transform:uppercase;padding:8px 0;border-bottom:1px solid rgba(0,229,255,0.18);margin-bottom:12px;}
-/* ALERTS */
 .alert-card-red{background:rgba(255,34,85,0.07);border:1px solid rgba(255,34,85,0.35);border-radius:12px;padding:14px 16px;margin:6px 0;animation:alert-pulse-red 2s infinite;}
 @keyframes alert-pulse-red{0%,100%{box-shadow:0 0 0px rgba(255,34,85,0);}50%{box-shadow:0 0 16px rgba(255,34,85,0.25);}}
 .alert-card-amber{background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.3);border-radius:12px;padding:14px 16px;margin:6px 0;}
 .alert-card-green{background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.25);border-radius:12px;padding:14px 16px;margin:6px 0;}
-/* AUTH */
 .auth-card{background:linear-gradient(145deg,rgba(7,16,32,0.98),rgba(12,26,46,0.98));border:1px solid rgba(0,229,255,0.25);border-radius:22px;padding:42px 38px;box-shadow:0 0 80px rgba(0,229,255,0.06),inset 0 1px 0 rgba(0,229,255,0.08);position:relative;overflow:hidden;animation:card-appear 0.7s cubic-bezier(0.16,1,0.3,1) forwards;}
 @keyframes card-appear{0%{opacity:0;transform:translateY(40px) scale(0.95);}100%{opacity:1;transform:translateY(0) scale(1);}}
 .auth-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#00e5ff,#0070ff,#aa33ff,#00ffcc,#00e5ff);background-size:300% 100%;animation:gradient-slide 4s linear infinite;}
@@ -263,7 +226,6 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .auth-success{background:rgba(0,255,136,0.07);border:1px solid #00ff88;border-radius:10px;padding:12px 16px;font-family:'Exo 2',sans-serif;color:#00ff88;font-size:0.85rem;margin:8px 0;}
 .auth-error{background:rgba(255,34,85,0.07);border:1px solid #ff2255;border-radius:10px;padding:12px 16px;font-family:'Exo 2',sans-serif;color:#ff2255;font-size:0.85rem;margin:8px 0;}
 .auth-info{background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.25);border-radius:10px;padding:12px 16px;font-family:'Exo 2',sans-serif;color:#00e5ff;font-size:0.85rem;margin:8px 0;}
-/* OTP BOX */
 .otp-box{background:linear-gradient(135deg,rgba(0,112,255,0.08),rgba(0,229,255,0.04));border:1px solid rgba(0,229,255,0.3);border-radius:14px;padding:20px 18px;margin:12px 0;text-align:center;}
 .otp-sent-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.3);border-radius:20px;padding:6px 16px;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:#00ff88;letter-spacing:1.5px;margin-bottom:12px;}
 .hex-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(0,112,255,0.04));border:1px solid rgba(0,229,255,0.15);border-radius:14px;padding:18px 12px;text-align:center;transition:all 0.3s ease;}
@@ -280,6 +242,11 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .insight-red{background:rgba(255,34,85,0.06);border:1px solid rgba(255,34,85,0.2);border-radius:12px;padding:16px;}
 .insight-green{background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);border-radius:12px;padding:16px;}
 .insight-blue{background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:16px;}
+/* IST CLOCK CARD */
+.ist-clock-card{background:linear-gradient(135deg,rgba(0,229,255,0.04),rgba(0,112,255,0.06));border:1px solid rgba(0,229,255,0.25);border-radius:12px;padding:10px 14px;margin-bottom:10px;text-align:center;}
+.ist-time-display{font-family:'Share Tech Mono',monospace;font-size:1.35rem;color:#00e5ff;font-weight:700;letter-spacing:3px;}
+.ist-date-display{font-family:'Exo 2',sans-serif;font-size:0.68rem;color:#5a7a9a;margin-top:3px;letter-spacing:1px;}
+.ist-label{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:#4a6a8a;letter-spacing:2px;margin-bottom:4px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -462,7 +429,7 @@ def check_alerts(df_in, threshold=200):
             alerts.append({
                 "city":row["City"],"aqi":row["AQI"],"level":level,
                 "cat":row["Category"],"color":row["Color"],
-                "time":datetime.datetime.now().strftime("%H:%M:%S")
+                "time":get_ist_now().strftime("%H:%M:%S IST")
             })
     return sorted(alerts, key=lambda x: x["aqi"], reverse=True)
 
@@ -475,7 +442,45 @@ def is_strong_password(pw):
             re.search(r"[0-9]",pw) and re.search(r"[^A-Za-z0-9]",pw))
 
 # ══════════════════════════════════════════════════════════════════
-# LOGIN SCREEN  (with Forgot Password tab)
+# IST CLOCK COMPONENT
+# ══════════════════════════════════════════════════════════════════
+def render_ist_clock():
+    """Renders a live IST clock in the sidebar using HTML + JS."""
+    ist_now = get_ist_now()
+    # Static fallback values (JS will override immediately)
+    time_str = ist_now.strftime("%H:%M:%S")
+    date_str = ist_now.strftime("%a, %d %b %Y")
+
+    st.markdown(f"""
+    <div class="ist-clock-card">
+        <div class="ist-label">🕐 INDIA STANDARD TIME (IST · UTC+5:30)</div>
+        <div class="ist-time-display" id="sidebar-ist-time">{time_str}</div>
+        <div class="ist-date-display" id="sidebar-ist-date">{date_str}</div>
+    </div>
+    <script>
+    (function() {{
+        function pad(n) {{ return String(n).padStart(2,'0'); }}
+        const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        function getIST() {{
+            const now = new Date();
+            return new Date(now.getTime() + now.getTimezoneOffset()*60000 + 5.5*3600000);
+        }}
+        function updateClock() {{
+            const ist = getIST();
+            const tEl = document.getElementById('sidebar-ist-time');
+            const dEl = document.getElementById('sidebar-ist-date');
+            if (tEl) tEl.textContent = pad(ist.getHours())+':'+pad(ist.getMinutes())+':'+pad(ist.getSeconds());
+            if (dEl) dEl.textContent = DAYS[ist.getDay()]+', '+ist.getDate()+' '+MONTHS[ist.getMonth()]+' '+ist.getFullYear();
+        }}
+        updateClock();
+        setInterval(updateClock, 1000);
+    }})();
+    </script>
+    """, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════
+# LOGIN SCREEN
 # ══════════════════════════════════════════════════════════════════
 def show_auth_screen():
     st.markdown('<div class="grid-bg"></div><div class="scan-line"></div>', unsafe_allow_html=True)
@@ -499,7 +504,6 @@ def show_auth_screen():
 
         tab_login, tab_reg, tab_fp = st.tabs(["🔐  LOGIN", "📡  REGISTER", "🔑  FORGOT PASSWORD"])
 
-        # ── LOGIN TAB ──────────────────────────────────────────
         with tab_login:
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
             st.markdown('<div style="font-family:Share Tech Mono;font-size:0.65rem;color:#4a6a8a;letter-spacing:2px;margin-bottom:14px;text-align:center;">ENTER CREDENTIALS TO ACCESS THE SYSTEM</div>', unsafe_allow_html=True)
@@ -522,7 +526,7 @@ def show_auth_screen():
                     st.rerun()
                 else:
                     email = login_email.strip()
-                    st.session_state.users_db[email]["last_login"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                    st.session_state.users_db[email]["last_login"] = get_ist_now().strftime("%Y-%m-%d %H:%M IST")
                     _save_users_db(st.session_state.users_db)
                     _record_attendance(email, st.session_state.users_db[email]["name"], "login")
                     st.session_state.logged_in = True
@@ -533,7 +537,6 @@ def show_auth_screen():
 
             st.markdown('<div style="text-align:center;margin-top:12px;font-family:Share Tech Mono;font-size:0.62rem;color:#2a4a6a;">──── SECURE · AES-256 ENCRYPTED ────</div>', unsafe_allow_html=True)
 
-        # ── REGISTER TAB ───────────────────────────────────────
         with tab_reg:
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
             with st.form("register_form", clear_on_submit=False):
@@ -559,7 +562,7 @@ def show_auth_screen():
                 else:
                     st.session_state.users_db[reg_email] = {
                         "name": reg_name.strip(), "password_hash": _hash(reg_pw),
-                        "role": reg_role, "joined": datetime.date.today().isoformat(),
+                        "role": reg_role, "joined": get_ist_now().date().isoformat(),
                         "last_login": None, "alerts_enabled": True,
                         "alert_threshold": 200, "theme": "Cyber Blue", "notifications": [],
                         "is_admin": False,
@@ -569,7 +572,6 @@ def show_auth_screen():
                     st.session_state.auth_msg = (f"✅ Account created! Welcome, {reg_name.split()[0]}. Please login.", "success")
                     st.rerun()
 
-        # ── FORGOT PASSWORD TAB ────────────────────────────────
         with tab_fp:
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
             st.markdown(
@@ -586,7 +588,6 @@ def show_auth_screen():
                           else "auth-info")
                 st.markdown(f'<div class="{fp_css}">{fp_msg_text}</div>', unsafe_allow_html=True)
 
-            # ── STEP 1: Enter registered email ──
             if st.session_state.fp_step == 1:
                 st.markdown(
                     '<div class="otp-box">'
@@ -627,14 +628,13 @@ def show_auth_screen():
                         )
                         st.rerun()
 
-            # ── STEP 2: Enter OTP + new password ──
             elif st.session_state.fp_step == 2:
                 fp_email_display = st.session_state.fp_email
                 masked = fp_email_display[:3] + "*" + fp_email_display[fp_email_display.index("@"):]
 
                 token_info = st.session_state.reset_tokens.get(fp_email_display)
                 if token_info:
-                    mins_left = max(0, int((token_info["expires"] - datetime.datetime.now()).total_seconds() // 60))
+                    mins_left = max(0, int((token_info["expires"] - get_ist_now()).total_seconds() // 60))
                     otp_hint  = token_info["otp"]
                     st.markdown(
                         f'<div class="otp-box">'
@@ -732,7 +732,6 @@ if not st.session_state.logged_in:
     show_auth_screen()
     st.stop()
 
-# ── Login success animation ──
 if st.session_state.login_anim:
     user_info_anim = st.session_state.users_db[st.session_state.current_user]
     ph = st.empty()
@@ -759,9 +758,9 @@ if st.session_state.df is None:
 # ══════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════
-user_info        = st.session_state.users_db[st.session_state.current_user]
+user_info            = st.session_state.users_db[st.session_state.current_user]
 alert_threshold_user = user_info.get("alert_threshold", 200)
-active_alerts    = check_alerts(st.session_state.df, alert_threshold_user)
+active_alerts        = check_alerts(st.session_state.df, alert_threshold_user)
 
 with st.sidebar:
     logo_small = AQI_LOGO_SVG.replace('width="110" height="110"','width="70" height="70"')
@@ -772,6 +771,9 @@ with st.sidebar:
         '<div style="font-family:Share Tech Mono,monospace;font-size:0.58rem;color:#4a6a8a;letter-spacing:2px;margin-top:2px;">INDIA MONITOR v4.0</div>'
         '</div>', unsafe_allow_html=True
     )
+
+    # ── LIVE IST CLOCK ──────────────────────────────────────────
+    render_ist_clock()
 
     initials = "".join([w[0].upper() for w in user_info["name"].split()[:2]])
     st.markdown(f"""
@@ -809,7 +811,7 @@ with st.sidebar:
 
     if st.button("🔄  REFRESH DATA", use_container_width=True, key="refresh_btn"):
         st.session_state.df = generate_data()
-        st.session_state.last_refresh = datetime.datetime.now()
+        st.session_state.last_refresh = get_ist_now()
         st.rerun()
 
     st.session_state.auto_refresh = st.checkbox("⚡ Auto-Refresh (30s)", value=st.session_state.auto_refresh)
@@ -840,7 +842,9 @@ with st.sidebar:
             unsafe_allow_html=True
         )
     st.divider()
-    lr = st.session_state.last_refresh.strftime("%H:%M:%S")
+
+    # ── LAST UPDATE in IST ──────────────────────────────────────
+    lr = st.session_state.last_refresh.strftime("%H:%M:%S IST")
     st.markdown(f'<div style="font-family:Share Tech Mono;font-size:0.68rem;color:#4a6a8a;text-align:center;">LAST UPDATE: {lr}</div>', unsafe_allow_html=True)
 
 # ── Data prep ──
@@ -849,12 +853,12 @@ dff = df[(df["AQI"]>=aqi_range[0]) & (df["AQI"]<=aqi_range[1])]
 if selected_states:
     dff = dff[dff["State"].isin(selected_states)]
 
-# ── Auto-refresh ──
+# ── Auto-refresh (IST-aware) ──
 if st.session_state.auto_refresh:
-    elapsed = (datetime.datetime.now() - st.session_state.last_refresh).seconds
+    elapsed = (get_ist_now() - st.session_state.last_refresh).seconds
     if elapsed >= 30:
         st.session_state.df = generate_data()
-        st.session_state.last_refresh = datetime.datetime.now()
+        st.session_state.last_refresh = get_ist_now()
         st.rerun()
 
 # ══════════════════════════════════════════════════════════════════
@@ -862,10 +866,11 @@ if st.session_state.auto_refresh:
 # ══════════════════════════════════════════════════════════════════
 col_title, col_live = st.columns([3,1])
 with col_title:
+    ist_header = get_ist_now()
     st.markdown(
         '<h1 style="margin-bottom:2px;">🛰️ INDIA AQI COMMAND CENTER</h1>'
-        '<p style="font-family:Share Tech Mono,monospace;color:#5a7a9a;font-size:0.78rem;letter-spacing:1.5px;margin-top:0;">'
-        'REAL-TIME AIR QUALITY INTELLIGENCE · 25 MAJOR CITIES · POLLUTION MONITOR v4.0</p>',
+        f'<p style="font-family:Share Tech Mono,monospace;color:#5a7a9a;font-size:0.78rem;letter-spacing:1.5px;margin-top:0;">'
+        f'REAL-TIME AIR QUALITY INTELLIGENCE · 25 MAJOR CITIES · {ist_header.strftime("%d %b %Y · %H:%M IST")}</p>',
         unsafe_allow_html=True
     )
 with col_live:
@@ -882,7 +887,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ── Top metrics ──
 avg_aqi   = int(df["AQI"].mean())
 worst     = df.loc[df["AQI"].idxmax()]
 best      = df.loc[df["AQI"].idxmin()]
@@ -903,7 +907,6 @@ st.divider()
 # PAGES
 # ══════════════════════════════════════════════════════════════════
 
-# ── PAGE: LIVE ──────────────────────────────────────────────────
 if "Live" in view_mode:
     st.markdown('<h2>🔴 LIVE AIR POLLUTION INDICATOR</h2>', unsafe_allow_html=True)
 
@@ -1019,19 +1022,18 @@ if "Live" in view_mode:
     st.plotly_chart(fig_stream, use_container_width=True)
 
     st.markdown('<div class="section-header">🔮 24-HOUR AQI FORECAST</div>', unsafe_allow_html=True)
-    now_h    = datetime.datetime.now().hour
-    h_labels = [f"{(now_h+i)%24:02d}:00" for i in range(24)]
+    now_h    = get_ist_now().hour
+    h_labels = [f"{(now_h+i)%24:02d}:00 IST" for i in range(24)]
     forecast = [max(20,min(500, int(current_aqi+40*np.sin((i-6)*np.pi/12)+random.randint(-20,20)))) for i in range(24)]
     f_colors = [get_aqi_info(v)[1] for v in forecast]
     fig_fc   = go.Figure()
     fig_fc.add_trace(go.Bar(x=h_labels, y=forecast, marker_color=f_colors, marker_line_width=0,
         hovertemplate="%{x}<br>AQI: %{y}<extra></extra>", name="Forecast"))
     apply_theme(fig_fc, height=210, margin=dict(l=60,r=20,t=10,b=70))
-    fig_fc.update_xaxes(title_text="Hour", tickangle=-45)
+    fig_fc.update_xaxes(title_text="Hour (IST)", tickangle=-45)
     fig_fc.update_yaxes(title_text="AQI")
     st.plotly_chart(fig_fc, use_container_width=True)
 
-# ── PAGE: MAP ───────────────────────────────────────────────────
 elif "Map" in view_mode:
     st.markdown('<h2>🗺️ INDIA POLLUTION MAP</h2>', unsafe_allow_html=True)
     col_left, col_right = st.columns([3,1])
@@ -1076,16 +1078,8 @@ elif "Map" in view_mode:
                 unsafe_allow_html=True
             )
 
-# ── PAGE: COMPARISON ────────────────────────────────────────────
 elif "Comparison" in view_mode:
     st.markdown('<h2>📊 CITY AQI COMPARISON</h2>', unsafe_allow_html=True)
     cc1, cc2 = st.columns(2)
     top_n   = cc1.slider("Number of cities", 5, 25, 15, key="top_n")
-    sort_by = cc2.selectbox("Sort / colour by", ["AQI"]+POLLUTANTS, key="sort_by")
-    sorted_df = dff.sort_values(sort_by, ascending=False).head(top_n)
-    unit = UNITS.get(sort_by,"")
-    fig_bar = go.Figure(go.Bar(
-        x=sorted_df["City"], y=sorted_df[sort_by],
-        marker_color=sorted_df["Color"], marker_line_width=0,
-        text=sorted_df[sort_by].round(1), textposition="outside",
-        
+    sort_by = cc2
