@@ -1,4 +1,4 @@
-import streamlit as st
+jimport streamlit as st
 import pandas as pd
 import numpy as np
 import random
@@ -7,25 +7,9 @@ import datetime
 import json
 import hashlib
 import re
-import smtplib
-import uuid
-import base64
-import urllib.parse
-import requests
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.utils import formatdate, make_msgid
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
-# ══════════════════════════════════════════════════════════════════
-# IST TIMEZONE
-# ══════════════════════════════════════════════════════════════════
-IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-
-def get_ist_now():
-    return datetime.datetime.now(IST)
 
 # ══════════════════════════════════════════════════════════════════
 # PAGE CONFIG — must be FIRST
@@ -38,265 +22,6 @@ st.set_page_config(
 )
 
 # ══════════════════════════════════════════════════════════════════
-# GMAIL SMTP CONFIG (for real OTP delivery)
-# ══════════════════════════════════════════════════════════════════
-# Set these via .streamlit/secrets.toml (create a ".streamlit" folder next to
-# app.py, and inside it a "secrets.toml" file):
-#   GMAIL_ADDRESS = "youraddress@gmail.com"
-#   GMAIL_APP_PASSWORD = "xxxx xxxx xxxx xxxx"   # 16-char Gmail App Password (NOT your normal Gmail password)
-# Generate an App Password at: https://myaccount.google.com/apppasswords
-# (This requires 2-Step Verification to be turned ON for that Gmail account —
-#  App Passwords are hidden/unavailable until 2-Step Verification is enabled.)
-GMAIL_ADDRESS = st.secrets.get("GMAIL_ADDRESS", "") if hasattr(st, "secrets") else ""
-GMAIL_APP_PASSWORD = st.secrets.get("GMAIL_APP_PASSWORD", "") if hasattr(st, "secrets") else ""
-GMAIL_SMTP_HOST = "smtp.gmail.com"
-GMAIL_SMTP_PORT = 587
-
-def _gmail_configured() -> bool:
-    return bool(GMAIL_ADDRESS and GMAIL_APP_PASSWORD)
-
-def _log_email_attempt(to_email: str, success: bool, err: str):
-    """Writes every send attempt to a local log file so the app owner can
-    diagnose delivery problems without exposing errors to end users."""
-    try:
-        entry = {
-            "to": to_email,
-            "success": success,
-            "error": err,
-            "time": get_ist_now().strftime("%Y-%m-%d %H:%M:%S IST"),
-        }
-        log = []
-        if _EMAIL_LOG_FILE.exists():
-            with open(_EMAIL_LOG_FILE, "r") as f:
-                log = json.load(f)
-        log.append(entry)
-        log = log[-200:]  # keep last 200 entries
-        with open(_EMAIL_LOG_FILE, "w") as f:
-            json.dump(log, f, indent=2)
-    except Exception:
-        pass  # logging must never break the app
-
-def _send_gmail(to_email: str, subject: str, html_body: str, text_body: str) -> tuple:
-    """Send an email via Gmail SMTP. Returns (success: bool, error_message: str).
-
-    Includes BOTH a plain-text and an HTML part, plus Date/Message-ID headers.
-    Emails sent with only an HTML part and no Date/Message-ID are very commonly
-    flagged as spam by Gmail and other providers — this was the #1 likely cause
-    of OTP emails not arriving (or landing straight in Spam) in the previous version.
-    """
-    if not _gmail_configured():
-        return False, "Gmail sender is not configured (missing GMAIL_ADDRESS / GMAIL_APP_PASSWORD in .streamlit/secrets.toml)."
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"AQI Command Center <{GMAIL_ADDRESS}>"
-        msg["To"] = to_email
-        msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(domain="aqicommand.in")
-        # Plain-text part MUST come first, HTML part second (per MIME alternative spec)
-        msg.attach(MIMEText(text_body, "plain"))
-        msg.attach(MIMEText(html_body, "html"))
-
-        with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_ADDRESS, [to_email], msg.as_string())
-        _log_email_attempt(to_email, True, "")
-        return True, ""
-    except smtplib.SMTPAuthenticationError:
-        err = ("Gmail rejected the login. This almost always means: (1) you used your normal Gmail "
-               "password instead of a 16-character App Password, or (2) 2-Step Verification isn't "
-               "enabled on the sending account yet. Generate an App Password at "
-               "https://myaccount.google.com/apppasswords and put it in GMAIL_APP_PASSWORD.")
-        _log_email_attempt(to_email, False, err)
-        return False, err
-    except Exception as e:
-        _log_email_attempt(to_email, False, str(e))
-        return False, str(e)
-
-# ══════════════════════════════════════════════════════════════════
-# GOOGLE OAUTH CONFIG ("Continue with Google")
-# ══════════════════════════════════════════════════════════════════
-# Set these via .streamlit/secrets.toml:
-#   GOOGLE_CLIENT_ID     = "xxxxxxxxxx.apps.googleusercontent.com"
-#   GOOGLE_CLIENT_SECRET = "xxxxxxxxxxxxxxxxxxxxxxxx"
-#   GOOGLE_REDIRECT_URI  = "http://localhost:8501"   # or your deployed app URL
-# Create these at https://console.cloud.google.com/apis/credentials
-# -> "Create Credentials" -> "OAuth client ID" -> "Web application".
-# Add GOOGLE_REDIRECT_URI to the "Authorized redirect URIs" list in that
-# same Google Cloud console screen (it must match exactly, including
-# http/https and trailing slash or lack thereof).
-GOOGLE_CLIENT_ID     = st.secrets.get("GOOGLE_CLIENT_ID", "") if hasattr(st, "secrets") else ""
-GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "") if hasattr(st, "secrets") else ""
-GOOGLE_REDIRECT_URI  = st.secrets.get("GOOGLE_REDIRECT_URI", "") if hasattr(st, "secrets") else ""
-GOOGLE_AUTH_ENDPOINT  = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
-GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v3/userinfo"
-
-def _google_configured() -> bool:
-    return bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI)
-
-def _get_google_auth_url() -> str:
-    """Builds the Google OAuth consent-screen URL for the 'Continue with Google' button."""
-    if "oauth_state" not in st.session_state:
-        st.session_state.oauth_state = uuid.uuid4().hex
-    params = {
-        "client_id": GOOGLE_CLIENT_ID,
-        "redirect_uri": GOOGLE_REDIRECT_URI,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "access_type": "online",
-        "prompt": "select_account",
-        "state": st.session_state.oauth_state,
-    }
-    return GOOGLE_AUTH_ENDPOINT + "?" + urllib.parse.urlencode(params)
-
-def _exchange_google_code(code: str) -> tuple:
-    """Exchanges an OAuth authorization code for the user's Google profile.
-    Returns (success: bool, profile_dict_or_error: dict|str)."""
-    try:
-        token_resp = requests.post(GOOGLE_TOKEN_ENDPOINT, data={
-            "code": code,
-            "client_id": GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
-            "redirect_uri": GOOGLE_REDIRECT_URI,
-            "grant_type": "authorization_code",
-        }, timeout=15)
-        token_resp.raise_for_status()
-        access_token = token_resp.json().get("access_token")
-        if not access_token:
-            return False, "Google did not return an access token."
-        userinfo_resp = requests.get(
-            GOOGLE_USERINFO_ENDPOINT,
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=15
-        )
-        userinfo_resp.raise_for_status()
-        return True, userinfo_resp.json()
-    except Exception as e:
-        return False, str(e)
-
-def _handle_google_callback():
-    """Checks the URL for a Google OAuth 'code' param (set after the user approves
-    consent) and, if present, logs them in / auto-registers them, then clears
-    the URL so a page refresh doesn't replay the login."""
-    if st.session_state.get("logged_in"):
-        return
-    if not _google_configured():
-        return
-    query = st.query_params
-    code = query.get("code")
-    if not code:
-        return
-    ok, profile = _exchange_google_code(code)
-    st.query_params.clear()
-    if not ok:
-        st.session_state.auth_msg = (f"❌ Google sign-in failed: {profile}", "error")
-        return
-    email = (profile.get("email") or "").strip().lower()
-    name  = profile.get("name") or (email.split("@")[0] if email else "Google User")
-    if not email:
-        st.session_state.auth_msg = ("❌ Google did not share an email address.", "error")
-        return
-    if email not in st.session_state.users_db:
-        st.session_state.users_db[email] = {
-            "name": name, "password_hash": _hash(uuid.uuid4().hex),
-            "role": "Analyst", "joined": get_ist_now().date().isoformat(),
-            "last_login": None, "alerts_enabled": True,
-            "alert_threshold": 200, "theme": "Cyber Blue", "notifications": [],
-            "is_admin": False, "phone": "", "auth_provider": "google",
-        }
-    st.session_state.users_db[email]["last_login"] = get_ist_now().strftime("%Y-%m-%d %H:%M IST")
-    _save_users_db(st.session_state.users_db)
-    _record_attendance(email, st.session_state.users_db[email]["name"], "login_google")
-    st.session_state.logged_in = True
-    st.session_state.current_user = email
-    st.session_state.auth_msg = ("", "")
-    st.session_state.login_anim = True
-
-# ══════════════════════════════════════════════════════════════════
-# TWILIO SMS CONFIG (for real mobile OTP delivery)
-# ══════════════════════════════════════════════════════════════════
-# Set these via .streamlit/secrets.toml:
-#   TWILIO_ACCOUNT_SID  = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-#   TWILIO_AUTH_TOKEN   = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-#   TWILIO_FROM_NUMBER  = "+1XXXXXXXXXX"   # a number/Messaging Service purchased in Twilio
-# Sign up and get these at https://console.twilio.com — trial accounts can
-# only text numbers you've verified in the console under "Verified Caller IDs".
-TWILIO_ACCOUNT_SID = st.secrets.get("TWILIO_ACCOUNT_SID", "") if hasattr(st, "secrets") else ""
-TWILIO_AUTH_TOKEN  = st.secrets.get("TWILIO_AUTH_TOKEN", "") if hasattr(st, "secrets") else ""
-TWILIO_FROM_NUMBER = st.secrets.get("TWILIO_FROM_NUMBER", "") if hasattr(st, "secrets") else ""
-
-def _twilio_configured() -> bool:
-    return bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER)
-
-def _normalize_phone(raw: str) -> str:
-    """Normalizes a phone number to E.164-ish format (+<countrycode><number>).
-    Returns '' if it doesn't look like a valid number. Defaults to +91 (India)
-    when no country code is given and the number is 10 digits."""
-    if not raw:
-        return ""
-    digits = re.sub(r"[^\d+]", "", raw.strip())
-    if digits.startswith("+"):
-        cleaned = "+" + re.sub(r"[^\d]", "", digits[1:])
-    elif len(digits) == 10:
-        cleaned = "+91" + digits
-    elif digits.startswith("0") and len(digits) == 11:
-        cleaned = "+91" + digits[1:]
-    else:
-        cleaned = "+" + digits if digits else ""
-    if re.match(r"^\+\d{8,15}$", cleaned):
-        return cleaned
-    return ""
-
-def _log_sms_attempt(to_phone: str, success: bool, err: str):
-    """Writes every SMS send attempt to a local log file so the app owner can
-    diagnose delivery problems without exposing errors to end users."""
-    try:
-        entry = {
-            "to": to_phone,
-            "success": success,
-            "error": err,
-            "time": get_ist_now().strftime("%Y-%m-%d %H:%M:%S IST"),
-        }
-        log = []
-        if _SMS_LOG_FILE.exists():
-            with open(_SMS_LOG_FILE, "r") as f:
-                log = json.load(f)
-        log.append(entry)
-        log = log[-200:]
-        with open(_SMS_LOG_FILE, "w") as f:
-            json.dump(log, f, indent=2)
-    except Exception:
-        pass
-
-def _send_twilio_sms(to_phone: str, body: str) -> tuple:
-    """Sends an SMS via the Twilio REST API (plain HTTP, no SDK needed).
-    Returns (success: bool, error_message: str)."""
-    if not _twilio_configured():
-        return False, "SMS sender is not configured (missing TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER in .streamlit/secrets.toml)."
-    try:
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
-        resp = requests.post(
-            url,
-            data={"To": to_phone, "From": TWILIO_FROM_NUMBER, "Body": body},
-            auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
-            timeout=15,
-        )
-        if resp.status_code in (200, 201):
-            _log_sms_attempt(to_phone, True, "")
-            return True, ""
-        else:
-            err = f"Twilio returned HTTP {resp.status_code}: {resp.text[:300]}"
-            _log_sms_attempt(to_phone, False, err)
-            return False, err
-    except Exception as e:
-        _log_sms_attempt(to_phone, False, str(e))
-        return False, str(e)
-
-# ══════════════════════════════════════════════════════════════════
 # PERSISTENT STORAGE
 # ══════════════════════════════════════════════════════════════════
 import os, pathlib
@@ -304,8 +29,6 @@ _DATA_DIR = pathlib.Path("aqi_data")
 _DATA_DIR.mkdir(exist_ok=True)
 _USERS_FILE      = _DATA_DIR / "users_db.json"
 _ATTENDANCE_FILE = _DATA_DIR / "attendance_log.json"
-_EMAIL_LOG_FILE  = _DATA_DIR / "email_log.json"
-_SMS_LOG_FILE    = _DATA_DIR / "sms_log.json"
 
 def _hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
@@ -358,13 +81,13 @@ def _record_attendance(email, name, event="login"):
         "email": email,
         "name": name,
         "event": event,
-        "timestamp": get_ist_now().strftime("%Y-%m-%d %H:%M:%S IST"),
-        "date": get_ist_now().date().isoformat(),
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "date": datetime.date.today().isoformat(),
     })
     _save_attendance(log)
 
 # ══════════════════════════════════════════════════════════════════
-# PASSWORD RESET / OTP SYSTEM (delivered via real Gmail SMTP or Twilio SMS)
+# PASSWORD RESET — OTP SYSTEM
 # ══════════════════════════════════════════════════════════════════
 if "reset_tokens" not in st.session_state:
     st.session_state.reset_tokens = {}
@@ -372,65 +95,60 @@ if "reset_tokens" not in st.session_state:
 def _generate_otp():
     return str(random.randint(100000, 999999))
 
-def _send_reset_email(email: str, otp: str, name: str) -> tuple:
-    """Generates + stores the OTP, and emails it to the user's real inbox via Gmail SMTP.
-    Returns (success: bool, error_message: str)."""
+def _send_reset_email(email: str, otp: str, name: str) -> bool:
+    """
+    Stores OTP in session state (valid 10 min).
+    ── PRODUCTION ── Replace body with smtplib / SendGrid / Mailgun / AWS SES.
+    """
     st.session_state.reset_tokens[email] = {
         "otp": otp,
-        "expires": get_ist_now() + datetime.timedelta(minutes=10),
+        "expires": datetime.datetime.now() + datetime.timedelta(minutes=10),
         "name": name,
     }
-
-    subject = "AQI Command Center - Your Password Reset OTP"
-    html_body = f"""
-    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#0a1628;color:#d8f0ff;padding:28px;border-radius:14px;border:1px solid #133a5a;">
-        <h2 style="color:#00e5ff;margin-top:0;">🛰️ AQI Command Center</h2>
-        <p>Hi {name},</p>
-        <p>We received a request to reset your password. Use the OTP below to continue. This code is valid for <b>10 minutes</b>.</p>
-        <div style="text-align:center;margin:24px 0;">
-            <span style="font-size:32px;letter-spacing:8px;font-weight:bold;color:#ffaa00;background:#071020;padding:14px 22px;border-radius:10px;display:inline-block;">{otp}</span>
-        </div>
-        <p style="color:#5a7a9a;font-size:13px;">If you did not request this, you can safely ignore this email — your password will not be changed.</p>
-        <hr style="border-color:#133a5a;">
-        <p style="font-size:11px;color:#4a6a8a;">India AQI Command Center · Real-time Air Quality Intelligence</p>
-    </div>
-    """
-    text_body = (
-        f"Hi {name},\n\n"
-        f"We received a request to reset your AQI Command Center password.\n\n"
-        f"Your OTP: {otp}\n"
-        f"This code is valid for 10 minutes.\n\n"
-        f"If you did not request this, you can safely ignore this email.\n\n"
-        f"— India AQI Command Center"
-    )
-    success, err = _send_gmail(email, subject, html_body, text_body)
-    print(f"[OTP] {email}: {otp} (email sent: {success}{'' if success else ' — ' + err})")
-    return success, err
-
-def _send_sms_otp(phone: str, otp: str, name: str, token_key: str = None, purpose: str = "reset") -> tuple:
-    """Generates + stores the OTP (keyed by the account's email by default, so the rest of
-    the reset/login flow can reuse _verify_otp unchanged), and texts it to the user's
-    mobile via Twilio. Returns (success: bool, error_message: str)."""
-    target_key = token_key or phone
-    st.session_state.reset_tokens[target_key] = {
-        "otp": otp,
-        "expires": get_ist_now() + datetime.timedelta(minutes=10),
-        "name": name,
-    }
-    action = "login" if purpose == "login" else "password reset"
-    body = (
-        f"AQI Command Center: Hi {name.split()[0] if name else ''}, your {action} OTP is {otp}. "
-        f"Valid for 10 minutes. Do not share this code with anyone."
-    )
-    success, err = _send_twilio_sms(phone, body)
-    print(f"[SMS OTP] {phone}: {otp} (sms sent: {success}{'' if success else ' — ' + err})")
-    return success, err
+    # ---- Uncomment & configure for real email delivery ----
+    # import smtplib
+    # from email.mime.multipart import MIMEMultipart
+    # from email.mime.text import MIMEText
+    # SMTP_HOST = "smtp.gmail.com"
+    # SMTP_PORT = 587
+    # SMTP_USER = "your_email@gmail.com"
+    # SMTP_PASS = "your_app_password"
+    # html_body = f"""
+    # <div style="font-family:Arial,sans-serif;background:#030b18;color:#d8f0ff;padding:32px;border-radius:12px;">
+    #   <h2 style="color:#00e5ff;">🛰️ AQI Command Center</h2>
+    #   <p>Hi {name},</p>
+    #   <p>Your password reset OTP is:</p>
+    #   <div style="font-size:2.4rem;font-weight:900;letter-spacing:10px;color:#00e5ff;
+    #               background:#071020;padding:18px 28px;border-radius:10px;display:inline-block;">
+    #     {otp}
+    #   </div>
+    #   <p style="color:#5a7a9a;font-size:0.85rem;margin-top:18px;">
+    #     Valid for <b>10 minutes</b>. Do not share this code with anyone.
+    #   </p>
+    # </div>"""
+    # msg = MIMEMultipart("alternative")
+    # msg["Subject"] = "AQI Command Center — Password Reset OTP"
+    # msg["From"]    = f"AQI Command <{SMTP_USER}>"
+    # msg["To"]      = email
+    # msg.attach(MIMEText(html_body, "html"))
+    # try:
+    #     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+    #         s.starttls()
+    #         s.login(SMTP_USER, SMTP_PASS)
+    #         s.send_message(msg)
+    #     return True
+    # except Exception as e:
+    #     print(f"[EMAIL ERROR] {e}")
+    #     return False
+    print(f"[DEV] OTP for {email}: {otp}")
+    return True
 
 def _verify_otp(email: str, otp_input: str) -> tuple:
+    """Returns (success, message)."""
     token = st.session_state.reset_tokens.get(email)
     if not token:
         return False, "No reset request found. Please request OTP again."
-    if get_ist_now() > token["expires"]:
+    if datetime.datetime.now() > token["expires"]:
         del st.session_state.reset_tokens[email]
         return False, "OTP has expired. Please request a new one."
     if token["otp"] != otp_input.strip():
@@ -451,19 +169,14 @@ def init_session():
         "live_aqi": 142,
         "live_city": "Mumbai",
         "live_history": [142],
-        "last_refresh": get_ist_now(),
+        "last_refresh": datetime.datetime.now(),
         "auto_refresh": False,
         "compare_cities": [],
         "nav_page": "🔴 Live Air Pollution",
+        # Forgot password flow state
         "fp_step": 1,
         "fp_email": "",
         "fp_msg": ("", ""),
-        "fe_msg": ("", ""),
-        # Mobile-number OTP login flow
-        "ml_step": 1,
-        "ml_phone": "",
-        "ml_email": "",
-        "ml_msg": ("", ""),
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -473,6 +186,7 @@ def init_session():
         st.session_state.users_db = _load_users_db()
 
 init_session()
+
 # ══════════════════════════════════════════════════════════════════
 # CSS
 # ══════════════════════════════════════════════════════════════════
@@ -509,19 +223,23 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .stTextInput input:focus{border-color:#00e5ff!important;box-shadow:0 0 14px rgba(0,229,255,0.2)!important;}
 .stTextInput label{color:#5a7a9a!important;font-family:'Exo 2',sans-serif!important;font-size:0.78rem!important;letter-spacing:1px!important;}
 .stTextArea textarea{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(0,229,255,0.2)!important;border-radius:10px!important;color:#d8f0ff!important;font-family:'Exo 2',sans-serif!important;}
+/* LIVE BADGE */
 .live-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,136,0.08);border:1px solid #00ff88;border-radius:20px;padding:4px 14px;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:#00ff88;letter-spacing:1.5px;animation:pulse-live 2s infinite;}
 @keyframes pulse-live{0%,100%{box-shadow:0 0 6px rgba(0,255,136,0.3);}50%{box-shadow:0 0 18px rgba(0,255,136,0.7);}}
 .dot-live{width:7px;height:7px;background:#00ff88;border-radius:50%;animation:blink 1.2s infinite;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.1;}}
+/* CARDS */
 .aqi-live-card{background:linear-gradient(135deg,#0a1628,#122040);border:1px solid rgba(0,229,255,0.25);border-radius:16px;padding:20px;text-align:center;position:relative;overflow:hidden;}
 .aqi-number{font-family:'Orbitron',monospace;font-size:3.2rem;font-weight:900;line-height:1;}
 .aqi-label-text{font-family:'Exo 2',sans-serif;font-size:1rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
 .health-advice{background:linear-gradient(135deg,rgba(0,229,255,0.04),rgba(0,112,255,0.04));border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:16px;font-family:'Exo 2',sans-serif;font-size:0.9rem;line-height:1.6;}
 .section-header{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700;color:#00e5ff;letter-spacing:2px;text-transform:uppercase;padding:8px 0;border-bottom:1px solid rgba(0,229,255,0.18);margin-bottom:12px;}
+/* ALERTS */
 .alert-card-red{background:rgba(255,34,85,0.07);border:1px solid rgba(255,34,85,0.35);border-radius:12px;padding:14px 16px;margin:6px 0;animation:alert-pulse-red 2s infinite;}
 @keyframes alert-pulse-red{0%,100%{box-shadow:0 0 0px rgba(255,34,85,0);}50%{box-shadow:0 0 16px rgba(255,34,85,0.25);}}
 .alert-card-amber{background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.3);border-radius:12px;padding:14px 16px;margin:6px 0;}
 .alert-card-green{background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.25);border-radius:12px;padding:14px 16px;margin:6px 0;}
+/* AUTH */
 .auth-card{background:linear-gradient(145deg,rgba(7,16,32,0.98),rgba(12,26,46,0.98));border:1px solid rgba(0,229,255,0.25);border-radius:22px;padding:42px 38px;box-shadow:0 0 80px rgba(0,229,255,0.06),inset 0 1px 0 rgba(0,229,255,0.08);position:relative;overflow:hidden;animation:card-appear 0.7s cubic-bezier(0.16,1,0.3,1) forwards;}
 @keyframes card-appear{0%{opacity:0;transform:translateY(40px) scale(0.95);}100%{opacity:1;transform:translateY(0) scale(1);}}
 .auth-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#00e5ff,#0070ff,#aa33ff,#00ffcc,#00e5ff);background-size:300% 100%;animation:gradient-slide 4s linear infinite;}
@@ -545,6 +263,7 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .auth-success{background:rgba(0,255,136,0.07);border:1px solid #00ff88;border-radius:10px;padding:12px 16px;font-family:'Exo 2',sans-serif;color:#00ff88;font-size:0.85rem;margin:8px 0;}
 .auth-error{background:rgba(255,34,85,0.07);border:1px solid #ff2255;border-radius:10px;padding:12px 16px;font-family:'Exo 2',sans-serif;color:#ff2255;font-size:0.85rem;margin:8px 0;}
 .auth-info{background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.25);border-radius:10px;padding:12px 16px;font-family:'Exo 2',sans-serif;color:#00e5ff;font-size:0.85rem;margin:8px 0;}
+/* OTP BOX */
 .otp-box{background:linear-gradient(135deg,rgba(0,112,255,0.08),rgba(0,229,255,0.04));border:1px solid rgba(0,229,255,0.3);border-radius:14px;padding:20px 18px;margin:12px 0;text-align:center;}
 .otp-sent-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.3);border-radius:20px;padding:6px 16px;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:#00ff88;letter-spacing:1.5px;margin-bottom:12px;}
 .hex-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(0,112,255,0.04));border:1px solid rgba(0,229,255,0.15);border-radius:14px;padding:18px 12px;text-align:center;transition:all 0.3s ease;}
@@ -561,18 +280,6 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .insight-red{background:rgba(255,34,85,0.06);border:1px solid rgba(255,34,85,0.2);border-radius:12px;padding:16px;}
 .insight-green{background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);border-radius:12px;padding:16px;}
 .insight-blue{background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:16px;}
-/* IST CLOCK CARD */
-.ist-clock-card{background:linear-gradient(135deg,rgba(0,229,255,0.04),rgba(0,112,255,0.06));border:1px solid rgba(0,229,255,0.25);border-radius:12px;padding:10px 14px;margin-bottom:10px;text-align:center;}
-.ist-time-display{font-family:'Share Tech Mono',monospace;font-size:1.35rem;color:#00e5ff;font-weight:700;letter-spacing:3px;}
-.ist-date-display{font-family:'Exo 2',sans-serif;font-size:0.68rem;color:#5a7a9a;margin-top:3px;letter-spacing:1px;}
-.ist-label{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:#4a6a8a;letter-spacing:2px;margin-bottom:4px;}
-/* GOOGLE SIGN-IN BUTTON */
-.google-btn-wrap{display:flex;justify-content:flex-end;padding:4px 4px 0 0;}
-.google-btn{display:inline-flex;align-items:center;gap:10px;background:#ffffff;color:#3c4043!important;
-    font-family:'Exo 2',sans-serif;font-weight:600;font-size:0.82rem;border-radius:10px;padding:9px 18px;
-    text-decoration:none!important;border:1px solid rgba(0,0,0,0.08);box-shadow:0 2px 10px rgba(0,0,0,0.25);
-    transition:all 0.2s ease;}
-.google-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,0.35);transform:translateY(-1px);}
 </style>
 """, unsafe_allow_html=True)
 
@@ -755,7 +462,7 @@ def check_alerts(df_in, threshold=200):
             alerts.append({
                 "city":row["City"],"aqi":row["AQI"],"level":level,
                 "cat":row["Category"],"color":row["Color"],
-                "time":get_ist_now().strftime("%H:%M:%S IST")
+                "time":datetime.datetime.now().strftime("%H:%M:%S")
             })
     return sorted(alerts, key=lambda x: x["aqi"], reverse=True)
 
@@ -768,64 +475,10 @@ def is_strong_password(pw):
             re.search(r"[0-9]",pw) and re.search(r"[^A-Za-z0-9]",pw))
 
 # ══════════════════════════════════════════════════════════════════
-# IST CLOCK COMPONENT
-# ══════════════════════════════════════════════════════════════════
-def render_ist_clock():
-    """Renders a live IST clock in the sidebar using HTML + JS."""
-    ist_now = get_ist_now()
-    # Static fallback values (JS will override immediately)
-    time_str = ist_now.strftime("%H:%M:%S")
-    date_str = ist_now.strftime("%a, %d %b %Y")
-
-    st.markdown(f"""
-    <div class="ist-clock-card">
-        <div class="ist-label">🕐 INDIA STANDARD TIME (IST · UTC+5:30)</div>
-        <div class="ist-time-display" id="sidebar-ist-time">{time_str}</div>
-        <div class="ist-date-display" id="sidebar-ist-date">{date_str}</div>
-    </div>
-    <script>
-    (function() {{
-        function pad(n) {{ return String(n).padStart(2,'0'); }}
-        const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        function getIST() {{
-            const now = new Date();
-            return new Date(now.getTime() + now.getTimezoneOffset()*60000 + 5.5*3600000);
-        }}
-        function updateClock() {{
-            const ist = getIST();
-            const tEl = document.getElementById('sidebar-ist-time');
-            const dEl = document.getElementById('sidebar-ist-date');
-            if (tEl) tEl.textContent = pad(ist.getHours())+':'+pad(ist.getMinutes())+':'+pad(ist.getSeconds());
-            if (dEl) dEl.textContent = DAYS[ist.getDay()]+', '+ist.getDate()+' '+MONTHS[ist.getMonth()]+' '+ist.getFullYear();
-        }}
-        updateClock();
-        setInterval(updateClock, 1000);
-    }})();
-    </script>
-    """, unsafe_allow_html=True)
-# ══════════════════════════════════════════════════════════════════
-# LOGIN SCREEN
+# LOGIN SCREEN  (with Forgot Password tab)
 # ══════════════════════════════════════════════════════════════════
 def show_auth_screen():
     st.markdown('<div class="grid-bg"></div><div class="scan-line"></div>', unsafe_allow_html=True)
-
-    top_l, top_r = st.columns([3, 1])
-    with top_r:
-        if _google_configured():
-            st.markdown(
-                f'<div class="google-btn-wrap"><a class="google-btn" href="{_get_google_auth_url()}">'
-                f'<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.4 18.9 12 24 12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 16.3 3 9.7 7.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.4 0 10.3-2.1 14-5.5l-6.5-5.4C29.5 35.9 26.9 37 24 37c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.6 40.6 16.3 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.5 5.4C41.9 35.8 45 30.3 45 24c0-1.4-.1-2.7-.4-3.5z"/></svg>'
-                f'Continue with Google</a></div>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown(
-                '<div class="google-btn-wrap"><span style="font-family:Share Tech Mono;font-size:0.6rem;'
-                'color:#4a6a8a;">Google Sign-In not configured</span></div>',
-                unsafe_allow_html=True
-            )
-
     _, mid, _ = st.columns([1, 1.2, 1])
     with mid:
         st.markdown(
@@ -844,10 +497,9 @@ def show_auth_screen():
             css_cls = "auth-success" if msg_type=="success" else ("auth-error" if msg_type=="error" else "auth-info")
             st.markdown(f'<div class="{css_cls}">{msg_text}</div>', unsafe_allow_html=True)
 
-        tab_login, tab_mobile, tab_reg, tab_fp, tab_fe = st.tabs(
-            ["🔐  LOGIN", "📱  MOBILE LOGIN", "📡  REGISTER", "🔑  FORGOT PASSWORD", "✉️  FORGOT EMAIL"]
-        )
+        tab_login, tab_reg, tab_fp = st.tabs(["🔐  LOGIN", "📡  REGISTER", "🔑  FORGOT PASSWORD"])
 
+        # ── LOGIN TAB ──────────────────────────────────────────
         with tab_login:
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
             st.markdown('<div style="font-family:Share Tech Mono;font-size:0.65rem;color:#4a6a8a;letter-spacing:2px;margin-bottom:14px;text-align:center;">ENTER CREDENTIALS TO ACCESS THE SYSTEM</div>', unsafe_allow_html=True)
@@ -870,7 +522,7 @@ def show_auth_screen():
                     st.rerun()
                 else:
                     email = login_email.strip()
-                    st.session_state.users_db[email]["last_login"] = get_ist_now().strftime("%Y-%m-%d %H:%M IST")
+                    st.session_state.users_db[email]["last_login"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                     _save_users_db(st.session_state.users_db)
                     _record_attendance(email, st.session_state.users_db[email]["name"], "login")
                     st.session_state.logged_in = True
@@ -881,148 +533,12 @@ def show_auth_screen():
 
             st.markdown('<div style="text-align:center;margin-top:12px;font-family:Share Tech Mono;font-size:0.62rem;color:#2a4a6a;">──── SECURE · AES-256 ENCRYPTED ────</div>', unsafe_allow_html=True)
 
-        with tab_mobile:
-            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-            st.markdown(
-                '<div style="font-family:Share Tech Mono;font-size:0.65rem;color:#4a6a8a;'
-                'letter-spacing:2px;margin-bottom:14px;text-align:center;">'
-                'LOGIN WITH YOUR MOBILE NUMBER VIA OTP</div>',
-                unsafe_allow_html=True
-            )
-
-            ml_msg_text, ml_msg_type = st.session_state.ml_msg
-            if ml_msg_text:
-                ml_css = ("auth-success" if ml_msg_type == "success"
-                          else "auth-error" if ml_msg_type == "error"
-                          else "auth-info")
-                st.markdown(f'<div class="{ml_css}">{ml_msg_text}</div>', unsafe_allow_html=True)
-
-            if st.session_state.ml_step == 1:
-                st.markdown(
-                    '<div class="otp-box">'
-                    '<div style="font-family:Orbitron,sans-serif;font-size:0.78rem;color:#00e5ff;'
-                    'letter-spacing:2px;margin-bottom:10px;">STEP 1 OF 2 · ENTER MOBILE NUMBER</div>'
-                    '<div style="font-family:Exo 2;font-size:0.82rem;color:#5a7a9a;">'
-                    'We will text a 6-digit OTP to your registered mobile number.</div>'
-                    '</div>',
-                    unsafe_allow_html=True
-                )
-                with st.form("mobile_login_identify_form", clear_on_submit=False):
-                    ml_phone_input = st.text_input(
-                        "📱  Registered Mobile Number", placeholder="+91XXXXXXXXXX", key="ml_phone_input"
-                    )
-                    ml_send_btn = st.form_submit_button("📨  SEND LOGIN OTP", use_container_width=True)
-
-                if ml_send_btn:
-                    phone_clean = _normalize_phone(ml_phone_input)
-                    if not phone_clean:
-                        st.session_state.ml_msg = ("❌ Please enter a valid mobile number.", "error")
-                        st.rerun()
-                    else:
-                        matched_email = None
-                        for em, ud in st.session_state.users_db.items():
-                            if ud.get("phone") == phone_clean:
-                                matched_email = em
-                                break
-                        if not matched_email:
-                            st.session_state.ml_msg = (
-                                "❌ No account found with this mobile number. Please register first "
-                                "or use email login.",
-                                "error"
-                            )
-                            st.rerun()
-                        else:
-                            otp = _generate_otp()
-                            user_name = st.session_state.users_db[matched_email]["name"]
-                            with st.spinner("📨 Sending OTP via SMS..."):
-                                _send_sms_otp(phone_clean, otp, user_name, token_key=matched_email, purpose="login")
-                            st.session_state.ml_phone = phone_clean
-                            st.session_state.ml_email = matched_email
-                            st.session_state.ml_step  = 2
-                            st.session_state.ml_msg = (
-                                f"✅ OTP sent via SMS to {phone_clean[:4]}****{phone_clean[-2:]}. "
-                                f"Valid for 10 minutes.",
-                                "success"
-                            )
-                            st.rerun()
-
-            elif st.session_state.ml_step == 2:
-                phone_disp = st.session_state.ml_phone
-                masked = phone_disp[:4] + "****" + phone_disp[-2:] if phone_disp else "your number"
-                token_info = st.session_state.reset_tokens.get(st.session_state.ml_email)
-                if token_info:
-                    mins_left = max(0, int((token_info["expires"] - get_ist_now()).total_seconds() // 60))
-                    st.markdown(
-                        f'<div class="otp-box">'
-                        f'<div class="otp-sent-badge">📨 OTP SENT VIA SMS TO {masked}</div>'
-                        f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;margin-bottom:6px;">'
-                        f'⏱️ Expires in <b style="color:#ffaa00;">{mins_left} min</b></div>'
-                        f'<div style="font-family:Exo 2;font-size:0.72rem;color:#5a7a9a;">'
-                        f'Check your SMS inbox and enter the 6-digit code below.</div>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
-
-                with st.form("mobile_login_verify_form", clear_on_submit=False):
-                    ml_otp_input = st.text_input("🔢  Enter 6-Digit OTP", placeholder="123456", max_chars=6, key="ml_otp_input")
-                    col_verify, col_back = st.columns(2)
-                    with col_verify:
-                        ml_verify_btn = st.form_submit_button("🚀  VERIFY & LOGIN", use_container_width=True)
-                    with col_back:
-                        ml_back_btn = st.form_submit_button("↩️  BACK", use_container_width=True)
-
-                if ml_back_btn:
-                    st.session_state.ml_step = 1
-                    st.session_state.ml_msg  = ("", "")
-                    st.rerun()
-
-                if ml_verify_btn:
-                    ok, verify_msg = _verify_otp(st.session_state.ml_email, ml_otp_input)
-                    if not ok:
-                        st.session_state.ml_msg = ("❌ " + verify_msg, "error")
-                        st.rerun()
-                    else:
-                        email = st.session_state.ml_email
-                        if email in st.session_state.reset_tokens:
-                            del st.session_state.reset_tokens[email]
-                        st.session_state.users_db[email]["last_login"] = get_ist_now().strftime("%Y-%m-%d %H:%M IST")
-                        _save_users_db(st.session_state.users_db)
-                        _record_attendance(email, st.session_state.users_db[email]["name"], "login_mobile_otp")
-                        st.session_state.logged_in = True
-                        st.session_state.current_user = email
-                        st.session_state.ml_step = 1
-                        st.session_state.ml_phone = ""
-                        st.session_state.ml_email = ""
-                        st.session_state.ml_msg = ("", "")
-                        st.session_state.auth_msg = ("", "")
-                        st.session_state.login_anim = True
-                        st.rerun()
-
-                st.markdown(
-                    '<div style="text-align:center;margin-top:12px;">'
-                    '<span style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;">Didn\'t receive OTP? </span>',
-                    unsafe_allow_html=True
-                )
-                if st.button("🔄  Resend OTP", key="ml_resend_otp_btn", use_container_width=False):
-                    email = st.session_state.ml_email
-                    if email in st.session_state.users_db:
-                        new_otp   = _generate_otp()
-                        user_name = st.session_state.users_db[email]["name"]
-                        with st.spinner("📨 Resending OTP via SMS..."):
-                            _send_sms_otp(phone_disp, new_otp, user_name, token_key=email, purpose="login")
-                        st.session_state.ml_msg = (
-                            f"✅ New OTP sent via SMS to {masked}. Valid for 10 minutes.",
-                            "success"
-                        )
-                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
+        # ── REGISTER TAB ───────────────────────────────────────
         with tab_reg:
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
             with st.form("register_form", clear_on_submit=False):
                 reg_name  = st.text_input("👤  Full Name", placeholder="Dr. Aditya Kumar")
                 reg_email = st.text_input("📧  Email", placeholder="you@domain.com")
-                reg_phone = st.text_input("📱  Mobile Number", placeholder="+91XXXXXXXXXX")
                 reg_role  = st.selectbox("🏷️  Role", ["Analyst","Researcher","Policy Maker","Student","Journalist"])
                 reg_pw    = st.text_input("🔒  Password", type="password", placeholder="8+ chars · Uppercase · Number · Symbol")
                 reg_pw2   = st.text_input("🔒  Confirm Password", type="password", placeholder="Re-enter password")
@@ -1034,8 +550,6 @@ def show_auth_screen():
                 if not reg_name.strip(): errors.append("Name required")
                 if not is_valid_email(reg_email): errors.append("Valid email required")
                 if reg_email in st.session_state.users_db: errors.append("Email already registered")
-                phone_clean = _normalize_phone(reg_phone)
-                if not phone_clean: errors.append("Valid mobile number required")
                 if not is_strong_password(reg_pw): errors.append("Password too weak (need uppercase, number, symbol, 8+ chars)")
                 if reg_pw != reg_pw2: errors.append("Passwords don't match")
                 if not terms: errors.append("Accept Terms of Service")
@@ -1045,22 +559,23 @@ def show_auth_screen():
                 else:
                     st.session_state.users_db[reg_email] = {
                         "name": reg_name.strip(), "password_hash": _hash(reg_pw),
-                        "role": reg_role, "joined": get_ist_now().date().isoformat(),
+                        "role": reg_role, "joined": datetime.date.today().isoformat(),
                         "last_login": None, "alerts_enabled": True,
                         "alert_threshold": 200, "theme": "Cyber Blue", "notifications": [],
-                        "is_admin": False, "phone": phone_clean,
+                        "is_admin": False,
                     }
                     _save_users_db(st.session_state.users_db)
                     _record_attendance(reg_email, reg_name.strip(), "register")
                     st.session_state.auth_msg = (f"✅ Account created! Welcome, {reg_name.split()[0]}. Please login.", "success")
                     st.rerun()
 
+        # ── FORGOT PASSWORD TAB ────────────────────────────────
         with tab_fp:
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
             st.markdown(
                 '<div style="font-family:Share Tech Mono;font-size:0.65rem;color:#4a6a8a;'
                 'letter-spacing:2px;margin-bottom:16px;text-align:center;">'
-                'RESET YOUR PASSWORD VIA OTP</div>',
+                'RESET YOUR PASSWORD VIA EMAIL OTP</div>',
                 unsafe_allow_html=True
             )
 
@@ -1071,113 +586,68 @@ def show_auth_screen():
                           else "auth-info")
                 st.markdown(f'<div class="{fp_css}">{fp_msg_text}</div>', unsafe_allow_html=True)
 
+            # ── STEP 1: Enter registered email ──
             if st.session_state.fp_step == 1:
                 st.markdown(
                     '<div class="otp-box">'
                     '<div style="font-family:Orbitron,sans-serif;font-size:0.78rem;color:#00e5ff;'
-                    'letter-spacing:2px;margin-bottom:10px;">STEP 1 OF 2 · VERIFY YOUR IDENTITY</div>'
+                    'letter-spacing:2px;margin-bottom:10px;">STEP 1 OF 2 · VERIFY YOUR EMAIL</div>'
                     '<div style="font-family:Exo 2;font-size:0.82rem;color:#5a7a9a;margin-bottom:14px;">'
-                    'Choose how you want to receive your 6-digit OTP.</div>'
+                    'Enter the email address registered with your account.<br>'
+                    'A 6-digit OTP will be generated and displayed below (demo mode).</div>'
                     '</div>',
                     unsafe_allow_html=True
                 )
-
-                fp_method = st.radio(
-                    "📨  Send OTP via", ["📧  Email", "📱  Mobile (SMS)"],
-                    horizontal=True, key="fp_method_radio"
-                )
-
-                with st.form("fp_identify_form", clear_on_submit=False):
-                    if "Email" in fp_method:
-                        fp_identifier_input = st.text_input(
-                            "📧  Registered Email", placeholder="you@domain.com", key="fp_email_input"
-                        )
-                    else:
-                        fp_identifier_input = st.text_input(
-                            "📱  Registered Mobile Number", placeholder="+91XXXXXXXXXX", key="fp_phone_input"
-                        )
+                with st.form("fp_email_form", clear_on_submit=False):
+                    fp_email_input = st.text_input(
+                        "📧  Registered Email", placeholder="you@domain.com", key="fp_email_input"
+                    )
                     send_otp_btn = st.form_submit_button("📨  SEND RESET OTP", use_container_width=True)
 
                 if send_otp_btn:
-                    if "Email" in fp_method:
-                        fe = fp_identifier_input.strip().lower()
-                        if not is_valid_email(fe):
-                            st.session_state.fp_msg = ("❌ Please enter a valid email address.", "error")
-                            st.rerun()
-                        elif fe not in st.session_state.users_db:
-                            st.session_state.fp_msg = (
-                                "📨 If this email is registered, an OTP has been sent. Check your inbox.",
-                                "info"
-                            )
-                            st.rerun()
-                        else:
-                            otp = _generate_otp()
-                            user_name = st.session_state.users_db[fe]["name"]
-                            with st.spinner("📨 Sending OTP to your email inbox..."):
-                                _send_reset_email(fe, otp, user_name)  # failures are logged server-side only
-                            st.session_state.fp_channel = "email"
-                            st.session_state.fp_email = fe
-                            st.session_state.fp_step  = 2
-                            st.session_state.fp_msg = (
-                                f"✅ OTP sent to {fe[:3]}*{fe[fe.index('@'):]}.  Valid for 10 minutes. "
-                                f"Check your inbox (and spam folder).",
-                                "success"
-                            )
-                            st.rerun()
+                    fe = fp_email_input.strip().lower()
+                    if not is_valid_email(fe):
+                        st.session_state.fp_msg = ("❌ Please enter a valid email address.", "error")
+                        st.rerun()
+                    elif fe not in st.session_state.users_db:
+                        st.session_state.fp_msg = (
+                            "📨 If this email is registered, an OTP has been sent. Check your inbox.",
+                            "info"
+                        )
+                        st.rerun()
                     else:
-                        phone_clean = _normalize_phone(fp_identifier_input)
-                        if not phone_clean:
-                            st.session_state.fp_msg = ("❌ Please enter a valid mobile number.", "error")
-                            st.rerun()
-                        else:
-                            matched_email = None
-                            for em, ud in st.session_state.users_db.items():
-                                if ud.get("phone") == phone_clean:
-                                    matched_email = em
-                                    break
-                            if not matched_email:
-                                st.session_state.fp_msg = (
-                                    "📨 If this number is registered, an OTP has been sent.",
-                                    "info"
-                                )
-                                st.rerun()
-                            else:
-                                otp = _generate_otp()
-                                user_name = st.session_state.users_db[matched_email]["name"]
-                                with st.spinner("📨 Sending OTP via SMS..."):
-                                    _send_sms_otp(phone_clean, otp, user_name, token_key=matched_email)  # failures logged server-side only
-                                st.session_state.fp_channel = "phone"
-                                st.session_state.fp_email = matched_email
-                                st.session_state.fp_phone = phone_clean
-                                st.session_state.fp_step  = 2
-                                st.session_state.fp_msg = (
-                                    f"✅ OTP sent via SMS to {phone_clean[:4]}****{phone_clean[-2:]}. "
-                                    f"Valid for 10 minutes.",
-                                    "success"
-                                )
-                                st.rerun()
+                        otp = _generate_otp()
+                        user_name = st.session_state.users_db[fe]["name"]
+                        _send_reset_email(fe, otp, user_name)
+                        st.session_state.fp_email = fe
+                        st.session_state.fp_step  = 2
+                        st.session_state.fp_msg   = (
+                            f"✅ OTP sent to {fe[:3]}*{fe[fe.index('@'):]}.  Valid for 10 minutes.",
+                            "success"
+                        )
+                        st.rerun()
 
+            # ── STEP 2: Enter OTP + new password ──
             elif st.session_state.fp_step == 2:
                 fp_email_display = st.session_state.fp_email
-                fp_channel = st.session_state.get("fp_channel", "email")
-                if fp_channel == "phone":
-                    phone_disp = st.session_state.get("fp_phone", "")
-                    masked = phone_disp[:4] + "****" + phone_disp[-2:] if phone_disp else "your number"
-                    badge_txt = f"📨 OTP SENT VIA SMS TO {masked}"
-                else:
-                    masked = fp_email_display[:3] + "*" + fp_email_display[fp_email_display.index("@"):]
-                    badge_txt = f"📨 OTP SENT TO {masked}"
+                masked = fp_email_display[:3] + "*" + fp_email_display[fp_email_display.index("@"):]
 
                 token_info = st.session_state.reset_tokens.get(fp_email_display)
                 if token_info:
-                    mins_left = max(0, int((token_info["expires"] - get_ist_now()).total_seconds() // 60))
+                    mins_left = max(0, int((token_info["expires"] - datetime.datetime.now()).total_seconds() // 60))
+                    otp_hint  = token_info["otp"]
                     st.markdown(
                         f'<div class="otp-box">'
-                        f'<div class="otp-sent-badge">{badge_txt}</div>'
-                        f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;margin-bottom:6px;">'
+                        f'<div class="otp-sent-badge">📨 OTP SENT TO {masked}</div>'
+                        f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;margin-bottom:10px;">'
                         f'⏱️ Expires in <b style="color:#ffaa00;">{mins_left} min</b></div>'
-                        f'<div style="font-family:Exo 2;font-size:0.72rem;color:#5a7a9a;">'
-                        f'{"Check your SMS inbox" if fp_channel=="phone" else "Open your email inbox"} and enter the 6-digit code below.</div>'
+                        f'<div style="font-family:Share Tech Mono;font-size:0.72rem;color:#2a4a6a;'
+                        f'background:rgba(0,0,0,0.3);border-radius:8px;padding:8px 12px;'
+                        f'border:1px dashed rgba(0,229,255,0.1);">'
+                        f'🛠️ DEV MODE · OTP: <span style="color:#ffaa00;font-size:1.1rem;'
+                        f'letter-spacing:4px;">{otp_hint}</span><br>'
+                        f'<span style="color:#2a4a6a;font-size:0.62rem;">'
+                        f'Remove this block in production</span></div>'
                         f'</div>',
                         unsafe_allow_html=True
                     )
@@ -1240,85 +710,13 @@ def show_auth_screen():
                     if fp_email_display in st.session_state.users_db:
                         new_otp   = _generate_otp()
                         user_name = st.session_state.users_db[fp_email_display]["name"]
-                        if fp_channel == "phone":
-                            phone_disp = st.session_state.get("fp_phone", "")
-                            with st.spinner("📨 Resending OTP via SMS..."):
-                                _send_sms_otp(phone_disp, new_otp, user_name, token_key=fp_email_display)
-                            st.session_state.fp_msg = (
-                                f"✅ New OTP sent via SMS to {masked}. Valid for 10 minutes.",
-                                "success"
-                            )
-                        else:
-                            with st.spinner("📨 Resending OTP..."):
-                                _send_reset_email(fp_email_display, new_otp, user_name)
-                            st.session_state.fp_msg = (
-                                f"✅ New OTP sent to {masked}. Valid for 10 minutes.",
-                                "success"
-                            )
-                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        with tab_fe:
-            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-            st.markdown(
-                '<div style="font-family:Share Tech Mono;font-size:0.65rem;color:#4a6a8a;'
-                'letter-spacing:2px;margin-bottom:16px;text-align:center;">'
-                'FIND THE EMAIL LINKED TO YOUR ACCOUNT</div>',
-                unsafe_allow_html=True
-            )
-
-            fe_msg_text, fe_msg_type = st.session_state.fe_msg
-            if fe_msg_text:
-                fe_css = ("auth-success" if fe_msg_type == "success"
-                          else "auth-error" if fe_msg_type == "error"
-                          else "auth-info")
-                st.markdown(f'<div class="{fe_css}">{fe_msg_text}</div>', unsafe_allow_html=True)
-
-            st.markdown(
-                '<div class="otp-box">'
-                '<div style="font-family:Exo 2;font-size:0.82rem;color:#5a7a9a;">'
-                'Enter the full name you registered with. We\'ll show a masked version of any '
-                'matching account email(s) so you can identify yours.</div>'
-                '</div>',
-                unsafe_allow_html=True
-            )
-
-            with st.form("forgot_email_form", clear_on_submit=False):
-                fe_name_input = st.text_input("👤  Full Name (as registered)", placeholder="Dr. Aditya Kumar", key="fe_name_input")
-                fe_submit = st.form_submit_button("🔍  FIND MY EMAIL", use_container_width=True)
-
-            if fe_submit:
-                query_name = fe_name_input.strip().lower()
-                if not query_name:
-                    st.session_state.fe_msg = ("⚠️ Please enter your name.", "error")
-                    st.rerun()
-                else:
-                    matches = [
-                        (email, data["name"])
-                        for email, data in st.session_state.users_db.items()
-                        if data["name"].strip().lower() == query_name
-                    ]
-                    if not matches:
-                        st.session_state.fe_msg = (
-                            "❌ No account found with that name. Double-check spelling or register a new account.",
-                            "error"
-                        )
-                    else:
-                        lines = []
-                        for email, name in matches:
-                            masked = email[:2] + "***" + email[email.index("@"):]
-                            lines.append(f"👤 <b>{name}</b> — <span style='color:#00e5ff;'>{masked}</span>")
-                        st.session_state.fe_msg = (
-                            "✅ Found " + str(len(matches)) + " matching account(s):<br>" + "<br>".join(lines),
+                        _send_reset_email(fp_email_display, new_otp, user_name)
+                        st.session_state.fp_msg = (
+                            f"✅ New OTP sent to {masked}. Valid for 10 minutes.",
                             "success"
                         )
-                    st.rerun()
-
-            st.markdown(
-                '<div style="text-align:center;margin-top:10px;font-family:Exo 2;font-size:0.72rem;color:#4a6a8a;">'
-                'Still can\'t find it? Contact your workspace admin for account recovery.</div>',
-                unsafe_allow_html=True
-            )
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown(
@@ -1326,15 +724,15 @@ def show_auth_screen():
             '🛰️ INDIA AQI COMMAND CENTER v4.0 · REAL-TIME · INTELLIGENT · SECURE</div>',
             unsafe_allow_html=True
         )
-# ══════════════════════════════════════════════════════════════════
-# GUARD — process Google OAuth callback, then show login if not authenticated
-# ══════════════════════════════════════════════════════════════════
-_handle_google_callback()
 
+# ══════════════════════════════════════════════════════════════════
+# GUARD — show login if not authenticated
+# ══════════════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
     show_auth_screen()
     st.stop()
 
+# ── Login success animation ──
 if st.session_state.login_anim:
     user_info_anim = st.session_state.users_db[st.session_state.current_user]
     ph = st.empty()
@@ -1361,9 +759,9 @@ if st.session_state.df is None:
 # ══════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════
-user_info            = st.session_state.users_db[st.session_state.current_user]
+user_info        = st.session_state.users_db[st.session_state.current_user]
 alert_threshold_user = user_info.get("alert_threshold", 200)
-active_alerts        = check_alerts(st.session_state.df, alert_threshold_user)
+active_alerts    = check_alerts(st.session_state.df, alert_threshold_user)
 
 with st.sidebar:
     logo_small = AQI_LOGO_SVG.replace('width="110" height="110"','width="70" height="70"')
@@ -1374,9 +772,6 @@ with st.sidebar:
         '<div style="font-family:Share Tech Mono,monospace;font-size:0.58rem;color:#4a6a8a;letter-spacing:2px;margin-top:2px;">INDIA MONITOR v4.0</div>'
         '</div>', unsafe_allow_html=True
     )
-
-    # ── LIVE IST CLOCK ──────────────────────────────────────────
-    render_ist_clock()
 
     initials = "".join([w[0].upper() for w in user_info["name"].split()[:2]])
     st.markdown(f"""
@@ -1414,7 +809,7 @@ with st.sidebar:
 
     if st.button("🔄  REFRESH DATA", use_container_width=True, key="refresh_btn"):
         st.session_state.df = generate_data()
-        st.session_state.last_refresh = get_ist_now()
+        st.session_state.last_refresh = datetime.datetime.now()
         st.rerun()
 
     st.session_state.auto_refresh = st.checkbox("⚡ Auto-Refresh (30s)", value=st.session_state.auto_refresh)
@@ -1445,9 +840,7 @@ with st.sidebar:
             unsafe_allow_html=True
         )
     st.divider()
-
-    # ── LAST UPDATE in IST ──────────────────────────────────────
-    lr = st.session_state.last_refresh.strftime("%H:%M:%S IST")
+    lr = st.session_state.last_refresh.strftime("%H:%M:%S")
     st.markdown(f'<div style="font-family:Share Tech Mono;font-size:0.68rem;color:#4a6a8a;text-align:center;">LAST UPDATE: {lr}</div>', unsafe_allow_html=True)
 
 # ── Data prep ──
@@ -1456,12 +849,12 @@ dff = df[(df["AQI"]>=aqi_range[0]) & (df["AQI"]<=aqi_range[1])]
 if selected_states:
     dff = dff[dff["State"].isin(selected_states)]
 
-# ── Auto-refresh (IST-aware) ──
+# ── Auto-refresh ──
 if st.session_state.auto_refresh:
-    elapsed = (get_ist_now() - st.session_state.last_refresh).seconds
+    elapsed = (datetime.datetime.now() - st.session_state.last_refresh).seconds
     if elapsed >= 30:
         st.session_state.df = generate_data()
-        st.session_state.last_refresh = get_ist_now()
+        st.session_state.last_refresh = datetime.datetime.now()
         st.rerun()
 
 # ══════════════════════════════════════════════════════════════════
@@ -1469,11 +862,10 @@ if st.session_state.auto_refresh:
 # ══════════════════════════════════════════════════════════════════
 col_title, col_live = st.columns([3,1])
 with col_title:
-    ist_header = get_ist_now()
     st.markdown(
         '<h1 style="margin-bottom:2px;">🛰️ INDIA AQI COMMAND CENTER</h1>'
-        f'<p style="font-family:Share Tech Mono,monospace;color:#5a7a9a;font-size:0.78rem;letter-spacing:1.5px;margin-top:0;">'
-        f'REAL-TIME AIR QUALITY INTELLIGENCE · 25 MAJOR CITIES · {ist_header.strftime("%d %b %Y · %H:%M IST")}</p>',
+        '<p style="font-family:Share Tech Mono,monospace;color:#5a7a9a;font-size:0.78rem;letter-spacing:1.5px;margin-top:0;">'
+        'REAL-TIME AIR QUALITY INTELLIGENCE · 25 MAJOR CITIES · POLLUTION MONITOR v4.0</p>',
         unsafe_allow_html=True
     )
 with col_live:
@@ -1490,6 +882,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ── Top metrics ──
 avg_aqi   = int(df["AQI"].mean())
 worst     = df.loc[df["AQI"].idxmax()]
 best      = df.loc[df["AQI"].idxmin()]
@@ -1510,6 +903,7 @@ st.divider()
 # PAGES
 # ══════════════════════════════════════════════════════════════════
 
+# ── PAGE: LIVE ──────────────────────────────────────────────────
 if "Live" in view_mode:
     st.markdown('<h2>🔴 LIVE AIR POLLUTION INDICATOR</h2>', unsafe_allow_html=True)
 
@@ -1625,18 +1019,19 @@ if "Live" in view_mode:
     st.plotly_chart(fig_stream, use_container_width=True)
 
     st.markdown('<div class="section-header">🔮 24-HOUR AQI FORECAST</div>', unsafe_allow_html=True)
-    now_h    = get_ist_now().hour
-    h_labels = [f"{(now_h+i)%24:02d}:00 IST" for i in range(24)]
+    now_h    = datetime.datetime.now().hour
+    h_labels = [f"{(now_h+i)%24:02d}:00" for i in range(24)]
     forecast = [max(20,min(500, int(current_aqi+40*np.sin((i-6)*np.pi/12)+random.randint(-20,20)))) for i in range(24)]
     f_colors = [get_aqi_info(v)[1] for v in forecast]
     fig_fc   = go.Figure()
     fig_fc.add_trace(go.Bar(x=h_labels, y=forecast, marker_color=f_colors, marker_line_width=0,
         hovertemplate="%{x}<br>AQI: %{y}<extra></extra>", name="Forecast"))
     apply_theme(fig_fc, height=210, margin=dict(l=60,r=20,t=10,b=70))
-    fig_fc.update_xaxes(title_text="Hour (IST)", tickangle=-45)
+    fig_fc.update_xaxes(title_text="Hour", tickangle=-45)
     fig_fc.update_yaxes(title_text="AQI")
     st.plotly_chart(fig_fc, use_container_width=True)
 
+# ── PAGE: MAP ───────────────────────────────────────────────────
 elif "Map" in view_mode:
     st.markdown('<h2>🗺️ INDIA POLLUTION MAP</h2>', unsafe_allow_html=True)
     col_left, col_right = st.columns([3,1])
@@ -1681,6 +1076,7 @@ elif "Map" in view_mode:
                 unsafe_allow_html=True
             )
 
+# ── PAGE: COMPARISON ────────────────────────────────────────────
 elif "Comparison" in view_mode:
     st.markdown('<h2>📊 CITY AQI COMPARISON</h2>', unsafe_allow_html=True)
     cc1, cc2 = st.columns(2)
@@ -1692,482 +1088,4 @@ elif "Comparison" in view_mode:
         x=sorted_df["City"], y=sorted_df[sort_by],
         marker_color=sorted_df["Color"], marker_line_width=0,
         text=sorted_df[sort_by].round(1), textposition="outside",
-        hovertemplate="<b>%{x}</b><br>"+sort_by+": %{y}<extra></extra>"
-    ))
-    apply_theme(fig_bar, height=420)
-    fig_bar.update_xaxes(title_text="City", tickangle=-38)
-    fig_bar.update_yaxes(title_text=f"{sort_by} ({unit})" if unit else sort_by)
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-    st.divider()
-    pie_col, scatter_col = st.columns(2)
-    with pie_col:
-        st.markdown('<div class="section-header">🥧 AQI CATEGORY DISTRIBUTION</div>', unsafe_allow_html=True)
-        cat_order  = ["Good","Satisfactory","Moderate","Poor","Very Poor","Severe"]
-        cat_colors = [c[3] for c in AQI_SCALE]
-        cat_counts = df["Category"].value_counts().reindex(cat_order, fill_value=0)
-        fig_pie = go.Figure(go.Pie(
-            labels=cat_counts.index, values=cat_counts.values,
-            marker_colors=cat_colors, hole=0.5,
-            hovertemplate="<b>%{label}</b><br>Cities: %{value} (%{percent})<extra></extra>",
-            textinfo="label+percent", textfont=dict(family="Exo 2, sans-serif",size=11)
-        ))
-        apply_theme(fig_pie, height=330, margin=dict(l=0,r=0,t=20,b=0))
-        st.plotly_chart(fig_pie, use_container_width=True)
-    with scatter_col:
-        st.markdown('<div class="section-header">🔵 PM2.5 vs PM10 SCATTER</div>', unsafe_allow_html=True)
-        fig_sc = go.Figure()
-        for cat, grp in df.groupby("Category"):
-            col_c = grp["Color"].iloc[0]
-            fig_sc.add_trace(go.Scatter(
-                x=grp["PM2.5"], y=grp["PM10"], mode="markers+text", name=cat,
-                text=grp["City"], textposition="top center",
-                textfont=dict(size=8,color="#5a7a9a"),
-                marker=dict(size=10,color=col_c,opacity=0.85,line=dict(width=1,color="rgba(255,255,255,0.15)")),
-                hovertemplate="<b>%{text}</b><br>PM2.5: %{x}<br>PM10: %{y}<extra></extra>"
-            ))
-        apply_theme(fig_sc, height=330)
-        fig_sc.update_xaxes(title_text="PM2.5 (µg/m³)")
-        fig_sc.update_yaxes(title_text="PM10 (µg/m³)")
-        st.plotly_chart(fig_sc, use_container_width=True)
-
-elif "Trend" in view_mode:
-    st.markdown('<h2>📈 24-HOUR AQI TREND</h2>', unsafe_allow_html=True)
-    selected_cities = st.multiselect(
-        "Select cities (up to 6)", df["City"].tolist(),
-        default=["Delhi","Mumbai","Bangalore","Chennai"], key="trend_cities"
-    )
-    if not selected_cities:
-        st.info("Please select at least one city above.")
-    else:
-        now_ist_h = get_ist_now().hour
-        hour_labels = [f"{(now_ist_h+h)%24:02d}:00 IST" for h in range(24)]
-        palette = ["#00e5ff","#ff2255","#00ff88","#ffaa00","#aa33ff","#0070ff"]
-        fig_line = go.Figure()
-        for i, city in enumerate(selected_cities[:6]):
-            base  = int(df.loc[df["City"]==city,"AQI"].values[0])
-            trend = [max(20,min(500, int(base+55*np.sin((h-6)*np.pi/12)+random.randint(-25,25)))) for h in range(24)]
-            col_c = palette[i%len(palette)]
-            r_i,g_i,b_i = int(col_c[1:3],16),int(col_c[3:5],16),int(col_c[5:7],16)
-            fig_line.add_trace(go.Scatter(x=hour_labels, y=trend, mode="none",
-                fill="tozeroy", fillcolor=f"rgba({r_i},{g_i},{b_i},0.05)", showlegend=False, hoverinfo="skip"))
-            fig_line.add_trace(go.Scatter(x=hour_labels, y=trend, mode="lines+markers", name=city,
-                line=dict(color=col_c,width=2.5), marker=dict(size=5,color=col_c),
-                hovertemplate=f"<b>{city}</b> %{{x}}: AQI %{{y}}<extra></extra>"))
-        apply_theme(fig_line, height=440,
-            legend=dict(orientation="h",yanchor="bottom",y=1.02,bgcolor="rgba(7,16,32,0.85)",
-                        bordercolor="rgba(0,229,255,0.15)",borderwidth=1))
-        fig_line.update_xaxes(title_text="Hour (IST)", tickangle=-45)
-        fig_line.update_yaxes(title_text="AQI", range=[0,520])
-        st.plotly_chart(fig_line, use_container_width=True)
-
-        st.markdown('<div class="section-header">📅 7-DAY AQI TREND</div>', unsafe_allow_html=True)
-        days = [(get_ist_now() + datetime.timedelta(days=i)).strftime("%a %d %b") for i in range(7)]
-        fig_week = go.Figure()
-        for i, city in enumerate(selected_cities[:6]):
-            base   = int(df.loc[df["City"]==city,"AQI"].values[0])
-            weekly = [max(20,min(500, base+random.randint(-60,60))) for _ in range(7)]
-            col_c  = palette[i%len(palette)]
-            fig_week.add_trace(go.Scatter(x=days, y=weekly, mode="lines+markers", name=city,
-                line=dict(color=col_c,width=2), marker=dict(size=8,color=col_c,symbol="diamond"),
-                hovertemplate=f"<b>{city}</b> %{{x}}: AQI %{{y}}<extra></extra>"))
-        apply_theme(fig_week, height=300, legend=dict(orientation="h",yanchor="bottom",y=1.02))
-        fig_week.update_yaxes(title_text="AQI")
-        st.plotly_chart(fig_week, use_container_width=True)
-
-elif "Pollutant" in view_mode:
-    st.markdown('<h2>🧪 POLLUTANT BREAKDOWN</h2>', unsafe_allow_html=True)
-    selected_city = st.selectbox("Select a city", df["City"].tolist(), key="poll_city")
-    row = df[df["City"]==selected_city].iloc[0]
-
-    bar_col, radar_col = st.columns(2)
-    with bar_col:
-        st.markdown('<div class="section-header">📊 LEVELS vs SAFE LIMITS</div>', unsafe_allow_html=True)
-        poll_vals2 = [row[p] for p in POLLUTANTS]
-        safe_vals2 = [SAFE_LIMITS[p] for p in POLLUTANTS]
-        b_colors   = ["#00ff88" if row[p]<=SAFE_LIMITS[p] else "#ffaa00" if row[p]<=SAFE_LIMITS[p]*1.5 else "#ff2255" for p in POLLUTANTS]
-        fig_poll   = go.Figure()
-        fig_poll.add_trace(go.Bar(name="Measured", x=POLLUTANTS, y=poll_vals2,
-            marker_color=b_colors, marker_line_width=0, hovertemplate="<b>%{x}</b>: %{y}<extra></extra>"))
-        fig_poll.add_trace(go.Bar(name="Safe Limit", x=POLLUTANTS, y=safe_vals2,
-            marker_color="rgba(0,229,255,0.12)", marker_line_color="#00e5ff", marker_line_width=1,
-            hovertemplate="Safe limit %{x}: %{y}<extra></extra>"))
-        apply_theme(fig_poll, height=330, barmode="group")
-        st.plotly_chart(fig_poll, use_container_width=True)
-
-    with radar_col:
-        st.markdown('<div class="section-header">🕸️ POLLUTANT RADAR</div>', unsafe_allow_html=True)
-        norm_vals = [min(row[p]/SAFE_LIMITS[p], 3.0) for p in POLLUTANTS]
-        cat_color = row["Color"]
-        r_c,g_c,b_c = int(cat_color[1:3],16),int(cat_color[3:5],16),int(cat_color[5:7],16)
-        fig_radar = go.Figure(go.Scatterpolar(
-            r=norm_vals+[norm_vals[0]], theta=POLLUTANTS+[POLLUTANTS[0]],
-            fill="toself", fillcolor=f"rgba({r_c},{g_c},{b_c},0.18)",
-            line=dict(color=cat_color,width=2), marker=dict(size=7,color=cat_color)
-        ))
-        fig_radar.add_trace(go.Scatterpolar(
-            r=[1]*len(POLLUTANTS)+[1], theta=POLLUTANTS+[POLLUTANTS[0]],
-            mode="lines", line=dict(color="#00e5ff",width=1,dash="dot"), showlegend=False
-        ))
-        fig_radar.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=True,range=[0,3],tickfont=dict(color="#5a7a9a",size=9),gridcolor="rgba(0,229,255,0.08)"),
-                angularaxis=dict(tickfont=dict(color="#d8f0ff",size=11,family="Exo 2"),gridcolor="rgba(0,229,255,0.08)"),
-                bgcolor="rgba(7,16,32,0.6)"
-            ),
-            showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#d8f0ff"), height=340, margin=dict(l=40,r=40,t=40,b=40)
-        )
-        st.plotly_chart(fig_radar, use_container_width=True)
-
-    st.divider()
-    st.markdown('<div class="section-header">🔍 ALL CITIES — SINGLE POLLUTANT COMPARISON</div>', unsafe_allow_html=True)
-    focus_poll = st.selectbox("Choose pollutant", POLLUTANTS, key="focus_poll")
-    cmp_df     = df[["City",focus_poll]].sort_values(focus_poll, ascending=True)
-    safe_val   = SAFE_LIMITS[focus_poll]
-    bar_colors = ["#00ff88" if v<=safe_val else "#ffaa00" if v<=safe_val*1.5 else "#ff2255" for v in cmp_df[focus_poll]]
-    fig_hbar   = go.Figure(go.Bar(
-        x=cmp_df[focus_poll], y=cmp_df["City"], orientation="h",
-        marker_color=bar_colors, marker_line_width=0,
-        text=cmp_df[focus_poll].astype(str)+f" {UNITS[focus_poll]}",
-        textposition="outside", hovertemplate="<b>%{y}</b>: %{x}<extra></extra>"
-    ))
-    fig_hbar.add_vline(x=safe_val, line_dash="dash", line_color="#00e5ff",
-        annotation_text=f"Safe limit ({safe_val} {UNITS[focus_poll]})",
-        annotation_font_size=10, annotation_font_color="#00e5ff")
-    apply_theme(fig_hbar, height=570, margin=dict(l=120,r=80,t=20,b=40))
-    fig_hbar.update_xaxes(title_text=UNITS[focus_poll])
-    fig_hbar.update_yaxes(showgrid=False)
-    st.plotly_chart(fig_hbar, use_container_width=True)
-
-elif "Rankings" in view_mode:
-    st.markdown('<h2>🏆 RANKINGS & STATISTICS</h2>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown('<div class="section-header">🌿 TOP 10 CLEANEST</div>', unsafe_allow_html=True)
-        best10 = df.nsmallest(10,"AQI")[["City","State","AQI","Category","Color","Emoji"]].reset_index(drop=True)
-        for i,r in best10.iterrows():
-            st.markdown(
-                f'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;'
-                f'margin:3px 0;border-radius:8px;background:rgba(0,255,136,0.05);border-left:3px solid {r["Color"]};">'
-                f'<span style="font-family:Exo 2;font-size:0.88rem;"><b>{i+1}.</b> {r["Emoji"]} <b>{r["City"]}</b>'
-                f'<span style="color:#5a7a9a;font-size:0.75rem;"> · {r["State"]}</span></span>'
-                f'<span style="font-family:Share Tech Mono;color:{r["Color"]};font-size:0.88rem;">{r["AQI"]}</span></div>',
-                unsafe_allow_html=True
-            )
-    with col2:
-        st.markdown('<div class="section-header">☣️ TOP 10 MOST POLLUTED</div>', unsafe_allow_html=True)
-        worst10 = df.nlargest(10,"AQI")[["City","State","AQI","Category","Color","Emoji"]].reset_index(drop=True)
-        for i,r in worst10.iterrows():
-            st.markdown(
-                f'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;'
-                f'margin:3px 0;border-radius:8px;background:rgba(255,34,85,0.05);border-left:3px solid {r["Color"]};">'
-                f'<span style="font-family:Exo 2;font-size:0.88rem;"><b>{i+1}.</b> {r["Emoji"]} <b>{r["City"]}</b>'
-                f'<span style="color:#5a7a9a;font-size:0.75rem;"> · {r["State"]}</span></span>'
-                f'<span style="font-family:Share Tech Mono;color:{r["Color"]};font-size:0.88rem;">{r["AQI"]}</span></div>',
-                unsafe_allow_html=True
-            )
-
-    st.divider()
-    st.markdown('<div class="section-header">📊 AQI STATISTICS BY STATE</div>', unsafe_allow_html=True)
-    state_stats = df.groupby("State")["AQI"].agg(Avg="mean",Max="max",Min="min",Cities="count").round(1).sort_values("Avg",ascending=False).reset_index()
-    fig_state   = px.bar(state_stats, x="State", y="Avg",
-        color="Avg", color_continuous_scale=[[0,"#00ff88"],[0.4,"#ffaa00"],[0.7,"#ff2255"],[1,"#aa33ff"]],
-        range_color=[0,500], hover_data={"Max":True,"Min":True,"Cities":True},
-        text=state_stats["Avg"].astype(int), labels={"Avg":"Average AQI"})
-    apply_theme(fig_state, height=320)
-    fig_state.update_xaxes(tickangle=-38)
-    fig_state.update_coloraxes(showscale=False)
-    st.plotly_chart(fig_state, use_container_width=True)
-
-    st.divider()
-    st.markdown('<div class="section-header">📋 FULL DATA TABLE</div>', unsafe_allow_html=True)
-    display_cols = ["City","State","AQI","Category"]+POLLUTANTS
-    st.dataframe(
-        df[display_cols].sort_values("AQI",ascending=False).reset_index(drop=True),
-        use_container_width=True, height=400
-    )
-
-elif "Alerts" in view_mode:
-    st.markdown('<h2>🔔 ALERTS & NOTIFICATIONS</h2>', unsafe_allow_html=True)
-
-    a1, a2, a3 = st.columns(3)
-    with a1:
-        st.markdown(f'<div class="hex-stat"><div class="hex-val" style="color:#ff2255;">{len(active_alerts)}</div><div class="hex-lbl">Active Alerts</div></div>', unsafe_allow_html=True)
-    with a2:
-        critical_count = sum(1 for a in active_alerts if a["level"]=="CRITICAL")
-        st.markdown(f'<div class="hex-stat"><div class="hex-val" style="color:#aa33ff;">{critical_count}</div><div class="hex-lbl">Critical</div></div>', unsafe_allow_html=True)
-    with a3:
-        warning_count = sum(1 for a in active_alerts if a["level"]=="WARNING")
-        st.markdown(f'<div class="hex-stat"><div class="hex-val" style="color:#ffaa00;">{warning_count}</div><div class="hex-lbl">Warnings</div></div>', unsafe_allow_html=True)
-
-    st.divider()
-    new_threshold = st.slider("🎚️ Alert Threshold (AQI)", 50, 400, alert_threshold_user, step=25, key="alert_thresh_slider")
-    if new_threshold != alert_threshold_user:
-        st.session_state.users_db[st.session_state.current_user]["alert_threshold"] = new_threshold
-        _save_users_db(st.session_state.users_db)
-        st.rerun()
-
-    st.markdown('<div class="section-header" style="margin-top:16px;">🚨 ACTIVE ALERTS</div>', unsafe_allow_html=True)
-    if not active_alerts:
-        st.markdown('<div class="alert-card-green"><b style="color:#00ff88;">✅ All Clear!</b> No cities exceed the threshold.</div>', unsafe_allow_html=True)
-    else:
-        for a in active_alerts:
-            card_cls = "alert-card-red" if a["level"]=="CRITICAL" else "alert-card-amber"
-            lv_color = "#ff2255" if a["level"]=="CRITICAL" else "#ffaa00"
-            st.markdown(
-                f'<div class="{card_cls}">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<span style="font-family:Orbitron,sans-serif;font-size:0.88rem;font-weight:700;color:#d8f0ff;">{a["city"]}</span>'
-                f'<span style="font-family:Share Tech Mono;font-size:0.72rem;color:{lv_color};background:rgba(0,0,0,0.3);'
-                f'padding:3px 10px;border-radius:12px;border:1px solid {lv_color}40;">{a["level"]}</span></div>'
-                f'<div style="font-family:Orbitron,sans-serif;font-size:1.6rem;font-weight:900;color:{a["color"]};margin:4px 0;">{a["aqi"]} AQI</div>'
-                f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;">{a["cat"]} · Detected at {a["time"]}</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-
-elif "Weather" in view_mode:
-    st.markdown('<h2>🌡️ WEATHER & AQI FORECAST</h2>', unsafe_allow_html=True)
-    w_city = st.selectbox("Select City", df["City"].tolist(), key="weather_city")
-    row    = df[df["City"]==w_city].iloc[0]
-    label, color, emoji, advice = get_aqi_info(row["AQI"])
-
-    wc1, wc2, wc3, wc4 = st.columns(4)
-    temp    = random.randint(22, 42)
-    humidity= random.randint(30, 90)
-    wind    = random.randint(5, 35)
-    visibility = round(random.uniform(0.5, 10), 1)
-    wc1.metric("🌡️ Temperature", f"{temp}°C", f"{'↑' if temp>30 else '↓'} Feels {temp+random.randint(-3,3)}°C")
-    wc2.metric("💧 Humidity", f"{humidity}%", "High" if humidity>70 else "Normal")
-    wc3.metric("💨 Wind Speed", f"{wind} km/h", "Strong" if wind>20 else "Moderate")
-    wc4.metric("👁️ Visibility", f"{visibility} km", "Poor" if visibility<3 else "Good")
-
-    st.divider()
-    days_7 = [(get_ist_now() + datetime.timedelta(days=i)).strftime("%a %d %b") for i in range(7)]
-    aqi_7  = [max(20,min(500, row["AQI"]+random.randint(-80,80))) for _ in range(7)]
-    temp_7 = [temp + random.randint(-5,5) for _ in range(7)]
-    fc_colors_7 = [get_aqi_info(v)[1] for v in aqi_7]
-
-    fig_fc7 = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
-                             subplot_titles=("7-Day AQI Forecast","7-Day Temperature (°C)"))
-    fig_fc7.add_trace(go.Bar(x=days_7, y=aqi_7, marker_color=fc_colors_7, name="AQI",
-        hovertemplate="<b>%{x}</b><br>AQI: %{y}<extra></extra>"), row=1, col=1)
-    fig_fc7.add_trace(go.Scatter(x=days_7, y=temp_7, mode="lines+markers", name="Temp",
-        line=dict(color="#ffaa00",width=2.5), marker=dict(size=8,color="#ffaa00"),
-        hovertemplate="<b>%{x}</b><br>Temp: %{y}°C<extra></extra>"), row=2, col=1)
-    apply_theme(fig_fc7, height=500)
-    st.plotly_chart(fig_fc7, use_container_width=True)
-
-elif "Image" in view_mode:
-    st.markdown('<h2>📸 IMAGE-BASED AQI PREDICTOR</h2>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="insight-blue"><b style="color:#00e5ff;">ℹ️ How it works:</b> Upload a sky/outdoor photo. '
-        'The AI analyzes visual haze, visibility, and color tones to estimate AQI range.</div>',
-        unsafe_allow_html=True
-    )
-    uploaded = st.file_uploader("📤 Upload Sky / Outdoor Image", type=["jpg","jpeg","png","webp"], key="img_upload")
-    if uploaded:
-        st.image(uploaded, caption="Uploaded Image", use_column_width=True)
-        with st.spinner("🔍 Analyzing image for pollution indicators..."):
-            time.sleep(2)
-        pred_aqi   = random.randint(80, 350)
-        pred_label, pred_color, pred_emoji, pred_advice = get_aqi_info(pred_aqi)
-        confidence = random.randint(72, 95)
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,rgba(0,229,255,0.05),rgba(0,112,255,0.05));
-                    border:1px solid rgba(0,229,255,0.2);border-radius:16px;padding:24px;text-align:center;margin-top:16px;">
-            <div style="font-family:Share Tech Mono;font-size:0.72rem;color:#5a7a9a;letter-spacing:2px;margin-bottom:8px;">PREDICTED AQI</div>
-            <div style="font-family:Orbitron,sans-serif;font-size:3rem;font-weight:900;color:{pred_color};">{pred_aqi}</div>
-            <div style="font-family:Exo 2;font-size:1rem;color:{pred_color};margin-top:4px;">{pred_emoji} {pred_label}</div>
-            <div style="font-family:Share Tech Mono;font-size:0.72rem;color:#5a7a9a;margin-top:8px;">Confidence: {confidence}%</div>
-            <div style="font-family:Exo 2;font-size:0.85rem;color:#d8f0ff;margin-top:12px;">{pred_advice}</div>
-        </div>""", unsafe_allow_html=True)
-    else:
-        st.markdown(
-            '<div style="text-align:center;padding:60px 20px;background:rgba(0,229,255,0.02);'
-            'border:2px dashed rgba(0,229,255,0.15);border-radius:16px;">'
-            '<div style="font-size:3rem;">📷</div>'
-            '<div style="font-family:Exo 2;color:#5a7a9a;margin-top:12px;">Upload an outdoor image to predict AQI</div>'
-            '</div>', unsafe_allow_html=True
-        )
-
-elif "Export" in view_mode:
-    st.markdown('<h2>📋 DATA EXPORT</h2>', unsafe_allow_html=True)
-    export_cols = st.multiselect("Select columns", ["City","State","AQI","Category"]+POLLUTANTS,
-                                  default=["City","State","AQI","Category"]+POLLUTANTS, key="export_cols")
-    export_df = df[export_cols] if export_cols else df
-    st.dataframe(export_df, use_container_width=True, height=450)
-
-    ec1, ec2 = st.columns(2)
-    with ec1:
-        csv_data = export_df.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download CSV", csv_data,
-            f"india_aqi_{get_ist_now().date()}.csv", "text/csv", use_container_width=True)
-    with ec2:
-        json_data = export_df.to_json(orient="records", indent=2).encode("utf-8")
-        st.download_button("⬇️ Download JSON", json_data,
-            f"india_aqi_{get_ist_now().date()}.json", "application/json", use_container_width=True)
-
-    st.divider()
-    st.markdown('<div class="section-header">📊 QUICK STATS</div>', unsafe_allow_html=True)
-    qs1,qs2,qs3,qs4 = st.columns(4)
-    qs1.metric("Total Cities",   len(df))
-    qs2.metric("Avg AQI",        int(df["AQI"].mean()))
-    qs3.metric("Max AQI",        df["AQI"].max())
-    qs4.metric("Min AQI",        df["AQI"].min())
-
-    if user_info.get("is_admin"):
-        st.divider()
-        st.markdown('<div class="section-header">📑 ATTENDANCE LOG (ADMIN ONLY)</div>', unsafe_allow_html=True)
-        att_log = _load_attendance()
-        if att_log:
-            att_df = pd.DataFrame(att_log).sort_values("timestamp", ascending=False)
-            st.dataframe(att_df, use_container_width=True, height=300)
-            att_csv = att_df.to_csv(index=False).encode("utf-8")
-            st.download_button("⬇️ Download Attendance Log", att_csv,
-                f"attendance_{get_ist_now().date()}.csv", "text/csv")
-        else:
-            st.info("No attendance records yet.")
-
-        st.divider()
-        st.markdown('<div class="section-header">📧 EMAIL DELIVERY LOG (ADMIN ONLY)</div>', unsafe_allow_html=True)
-        if not _gmail_configured():
-            st.markdown(
-                '<div class="alert-card-amber">⚠️ <b>Gmail sender is not configured.</b> No OTP emails can be sent '
-                'until <code>GMAIL_ADDRESS</code> and <code>GMAIL_APP_PASSWORD</code> are set in '
-                '<code>.streamlit/secrets.toml</code>. See the comment block at the top of app.py for the exact steps.</div>',
-                unsafe_allow_html=True
-            )
-        if _EMAIL_LOG_FILE.exists():
-            with open(_EMAIL_LOG_FILE, "r") as f:
-                email_log = json.load(f)
-            if email_log:
-                email_df = pd.DataFrame(email_log).sort_values("time", ascending=False)
-                st.dataframe(email_df, use_container_width=True, height=260)
-                fail_count = int((~email_df["success"]).sum())
-                if fail_count:
-                    st.markdown(
-                        f'<div class="alert-card-amber">⚠️ {fail_count} send attempt(s) failed. '
-                        f'Check the "error" column above — the most common causes are a missing/incorrect '
-                        f'App Password, or 2-Step Verification not being enabled on the Gmail account.</div>',
-                        unsafe_allow_html=True
-                    )
-            else:
-                st.info("No email send attempts logged yet.")
-        else:
-            st.info("No email send attempts logged yet.")
-
-        st.divider()
-        st.markdown('<div class="section-header">📱 SMS DELIVERY LOG (ADMIN ONLY)</div>', unsafe_allow_html=True)
-        if not _twilio_configured():
-            st.markdown(
-                '<div class="alert-card-amber">⚠️ <b>SMS sender is not configured.</b> No OTP SMS can be sent '
-                'until <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code> and '
-                '<code>TWILIO_FROM_NUMBER</code> are set in <code>.streamlit/secrets.toml</code>. '
-                'See the comment block near the top of app.py for the exact steps.</div>',
-                unsafe_allow_html=True
-            )
-        if _SMS_LOG_FILE.exists():
-            with open(_SMS_LOG_FILE, "r") as f:
-                sms_log = json.load(f)
-            if sms_log:
-                sms_df = pd.DataFrame(sms_log).sort_values("time", ascending=False)
-                st.dataframe(sms_df, use_container_width=True, height=260)
-                fail_count_sms = int((~sms_df["success"]).sum())
-                if fail_count_sms:
-                    st.markdown(
-                        f'<div class="alert-card-amber">⚠️ {fail_count_sms} SMS send attempt(s) failed. '
-                        f'Check the "error" column above — common causes are an incorrect Account SID/Auth Token, '
-                        f'an unverified "from" number on a trial account, or an incorrectly formatted phone number '
-                        f'(must be in E.164 format, e.g. +91XXXXXXXXXX).</div>',
-                        unsafe_allow_html=True
-                    )
-            else:
-                st.info("No SMS send attempts logged yet.")
-        else:
-            st.info("No SMS send attempts logged yet.")
-
-elif "Account" in view_mode:
-    st.markdown('<h2>👤 MY ACCOUNT</h2>', unsafe_allow_html=True)
-    u = st.session_state.users_db[st.session_state.current_user]
-
-    ac1, ac2 = st.columns([1,2])
-    with ac1:
-        initials_big = "".join([w[0].upper() for w in u["name"].split()[:2]])
-        st.markdown(f"""
-        <div style="text-align:center;padding:30px 20px;background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(0,112,255,0.04));
-                    border:1px solid rgba(0,229,255,0.18);border-radius:16px;">
-            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#0070ff,#00e5ff);
-                        display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif;
-                        font-size:1.6rem;font-weight:900;color:#030b18;margin:0 auto 16px;">
-                {initials_big}
-            </div>
-            <div style="font-family:Orbitron,sans-serif;font-size:1rem;color:#00e5ff;font-weight:700;">{u['name']}</div>
-            <div style="font-family:Share Tech Mono;font-size:0.65rem;color:#5a7a9a;margin-top:4px;">{st.session_state.current_user}</div>
-            <div style="font-family:Exo 2;font-size:0.75rem;color:#00ff88;margin-top:6px;letter-spacing:1px;">⬡ {u['role']}</div>
-            <div style="font-family:Share Tech Mono;font-size:0.62rem;color:#2a4a6a;margin-top:10px;">
-                Joined: {u['joined']}<br>
-                Last Login: {u.get('last_login','—') or 'First session'}
-            </div>
-            {"<div style='font-family:Share Tech Mono;font-size:0.68rem;color:#aa33ff;margin-top:8px;background:rgba(170,51,255,0.1);border:1px solid rgba(170,51,255,0.3);border-radius:8px;padding:4px 10px;'>⚡ ADMIN</div>" if u.get('is_admin') else ""}
-        </div>""", unsafe_allow_html=True)
-
-    with ac2:
-        st.markdown('<div class="section-header">⚙️ ACCOUNT SETTINGS</div>', unsafe_allow_html=True)
-
-        with st.form("update_profile_form"):
-            new_name = st.text_input("👤 Display Name", value=u["name"])
-            new_phone = st.text_input("📱 Mobile Number", value=u.get("phone",""))
-            new_role = st.selectbox("🏷️ Role", ["Analyst","Researcher","Policy Maker","Student","Journalist"],
-                                     index=["Analyst","Researcher","Policy Maker","Student","Journalist"].index(u["role"]))
-            alerts_on = st.checkbox("🔔 Enable Alerts", value=u.get("alerts_enabled", True))
-            new_thresh = st.slider("🚨 Alert AQI Threshold", 50, 400, u.get("alert_threshold",200), step=25)
-            save_btn = st.form_submit_button("💾 SAVE SETTINGS", use_container_width=True)
-
-        if save_btn:
-            phone_clean_acc = _normalize_phone(new_phone) or u.get("phone","")
-            st.session_state.users_db[st.session_state.current_user].update({
-                "name": new_name.strip() or u["name"],
-                "phone": phone_clean_acc,
-                "role": new_role,
-                "alerts_enabled": alerts_on,
-                "alert_threshold": new_thresh,
-            })
-            _save_users_db(st.session_state.users_db)
-            st.success("✅ Profile updated!")
-            st.rerun()
-
-        st.markdown('<div class="section-header" style="margin-top:20px;">🔑 CHANGE PASSWORD</div>', unsafe_allow_html=True)
-        with st.form("change_pw_form"):
-            curr_pw  = st.text_input("Current Password", type="password", key="curr_pw")
-            new_pw1  = st.text_input("New Password", type="password", key="new_pw1")
-            new_pw2  = st.text_input("Confirm New Password", type="password", key="new_pw2")
-            pw_btn   = st.form_submit_button("🔐 CHANGE PASSWORD", use_container_width=True)
-
-        if pw_btn:
-            if _hash(curr_pw) != u["password_hash"]:
-                st.error("❌ Current password is incorrect.")
-            elif not is_strong_password(new_pw1):
-                st.error("❌ New password too weak.")
-            elif new_pw1 != new_pw2:
-                st.error("❌ Passwords don't match.")
-            else:
-                st.session_state.users_db[st.session_state.current_user]["password_hash"] = _hash(new_pw1)
-                _save_users_db(st.session_state.users_db)
-                st.success("✅ Password changed successfully!")
-
-    if u.get("is_admin"):
-        st.divider()
-        st.markdown('<div class="section-header">⚡ ADMIN PANEL — USER MANAGEMENT</div>', unsafe_allow_html=True)
-        users_df = pd.DataFrame([
-            {"Email": email, "Name": data["name"], "Role": data["role"],
-             "Joined": data["joined"], "Last Login": data.get("last_login","—") or "Never",
-             "Admin": "✅" if data.get("is_admin") else ""}
-            for email, data in st.session_state.users_db.items()
-        ])
-        st.dataframe(users_df, use_container_width=True, height=300)
-        st.markdown('<div style="font-family:Exo 2;font-size:0.82rem;color:#5a7a9a;margin-top:8px;">Total registered users: <b style="color:#00e5ff;">{}</b></div>'.format(len(st.session_state.users_db)), unsafe_allow_html=True)
-
-else:
-    st.info(f"Page: {view_mode} — Coming Soon!")
+        
