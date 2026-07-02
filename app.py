@@ -10,6 +10,7 @@ import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formatdate, make_msgid
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -35,11 +36,13 @@ st.set_page_config(
 # ══════════════════════════════════════════════════════════════════
 # GMAIL SMTP CONFIG (for real OTP delivery)
 # ══════════════════════════════════════════════════════════════════
-# Set these via .streamlit/secrets.toml:
+# Set these via .streamlit/secrets.toml (create a ".streamlit" folder next to
+# app.py, and inside it a "secrets.toml" file):
 #   GMAIL_ADDRESS = "youraddress@gmail.com"
-#   GMAIL_APP_PASSWORD = "xxxx xxxx xxxx xxxx"   # 16-char Gmail App Password (NOT your normal password)
+#   GMAIL_APP_PASSWORD = "xxxx xxxx xxxx xxxx"   # 16-char Gmail App Password (NOT your normal Gmail password)
 # Generate an App Password at: https://myaccount.google.com/apppasswords
-# (Requires 2-Step Verification enabled on the Gmail account.)
+# (This requires 2-Step Verification to be turned ON for that Gmail account —
+#  App Passwords are hidden/unavailable until 2-Step Verification is enabled.)
 GMAIL_ADDRESS = st.secrets.get("GMAIL_ADDRESS", "") if hasattr(st, "secrets") else ""
 GMAIL_APP_PASSWORD = st.secrets.get("GMAIL_APP_PASSWORD", "") if hasattr(st, "secrets") else ""
 GMAIL_SMTP_HOST = "smtp.gmail.com"
@@ -48,15 +51,46 @@ GMAIL_SMTP_PORT = 587
 def _gmail_configured() -> bool:
     return bool(GMAIL_ADDRESS and GMAIL_APP_PASSWORD)
 
-def _send_gmail(to_email: str, subject: str, html_body: str) -> tuple:
-    """Send an email via Gmail SMTP. Returns (success: bool, error_message: str)."""
+def _log_email_attempt(to_email: str, success: bool, err: str):
+    """Writes every send attempt to a local log file so the app owner can
+    diagnose delivery problems without exposing errors to end users."""
+    try:
+        entry = {
+            "to": to_email,
+            "success": success,
+            "error": err,
+            "time": get_ist_now().strftime("%Y-%m-%d %H:%M:%S IST"),
+        }
+        log = []
+        if _EMAIL_LOG_FILE.exists():
+            with open(_EMAIL_LOG_FILE, "r") as f:
+                log = json.load(f)
+        log.append(entry)
+        log = log[-200:]  # keep last 200 entries
+        with open(_EMAIL_LOG_FILE, "w") as f:
+            json.dump(log, f, indent=2)
+    except Exception:
+        pass  # logging must never break the app
+
+def _send_gmail(to_email: str, subject: str, html_body: str, text_body: str) -> tuple:
+    """Send an email via Gmail SMTP. Returns (success: bool, error_message: str).
+
+    Includes BOTH a plain-text and an HTML part, plus Date/Message-ID headers.
+    Emails sent with only an HTML part and no Date/Message-ID are very commonly
+    flagged as spam by Gmail and other providers — this was the #1 likely cause
+    of OTP emails not arriving (or landing straight in Spam) in the previous version.
+    """
     if not _gmail_configured():
-        return False, "Gmail sender is not configured (missing GMAIL_ADDRESS / GMAIL_APP_PASSWORD in secrets)."
+        return False, "Gmail sender is not configured (missing GMAIL_ADDRESS / GMAIL_APP_PASSWORD in .streamlit/secrets.toml)."
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = f"AQI Command Center <{GMAIL_ADDRESS}>"
         msg["To"] = to_email
+        msg["Date"] = formatdate(localtime=True)
+        msg["Message-ID"] = make_msgid(domain="aqicommand.in")
+        # Plain-text part MUST come first, HTML part second (per MIME alternative spec)
+        msg.attach(MIMEText(text_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
 
         with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=15) as server:
@@ -65,8 +99,17 @@ def _send_gmail(to_email: str, subject: str, html_body: str) -> tuple:
             server.ehlo()
             server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
             server.sendmail(GMAIL_ADDRESS, [to_email], msg.as_string())
+        _log_email_attempt(to_email, True, "")
         return True, ""
+    except smtplib.SMTPAuthenticationError:
+        err = ("Gmail rejected the login. This almost always means: (1) you used your normal Gmail "
+               "password instead of a 16-character App Password, or (2) 2-Step Verification isn't "
+               "enabled on the sending account yet. Generate an App Password at "
+               "https://myaccount.google.com/apppasswords and put it in GMAIL_APP_PASSWORD.")
+        _log_email_attempt(to_email, False, err)
+        return False, err
     except Exception as e:
+        _log_email_attempt(to_email, False, str(e))
         return False, str(e)
 
 # ══════════════════════════════════════════════════════════════════
@@ -77,6 +120,7 @@ _DATA_DIR = pathlib.Path("aqi_data")
 _DATA_DIR.mkdir(exist_ok=True)
 _USERS_FILE      = _DATA_DIR / "users_db.json"
 _ATTENDANCE_FILE = _DATA_DIR / "attendance_log.json"
+_EMAIL_LOG_FILE  = _DATA_DIR / "email_log.json"
 
 def _hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
@@ -152,7 +196,7 @@ def _send_reset_email(email: str, otp: str, name: str) -> tuple:
         "name": name,
     }
 
-    subject = "🔐 Your AQI Command Center Password Reset OTP"
+    subject = "AQI Command Center - Your Password Reset OTP"
     html_body = f"""
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#0a1628;color:#d8f0ff;padding:28px;border-radius:14px;border:1px solid #133a5a;">
         <h2 style="color:#00e5ff;margin-top:0;">🛰️ AQI Command Center</h2>
@@ -166,7 +210,15 @@ def _send_reset_email(email: str, otp: str, name: str) -> tuple:
         <p style="font-size:11px;color:#4a6a8a;">India AQI Command Center · Real-time Air Quality Intelligence</p>
     </div>
     """
-    success, err = _send_gmail(email, subject, html_body)
+    text_body = (
+        f"Hi {name},\n\n"
+        f"We received a request to reset your AQI Command Center password.\n\n"
+        f"Your OTP: {otp}\n"
+        f"This code is valid for 10 minutes.\n\n"
+        f"If you did not request this, you can safely ignore this email.\n\n"
+        f"— India AQI Command Center"
+    )
+    success, err = _send_gmail(email, subject, html_body, text_body)
     print(f"[OTP] {email}: {otp} (email sent: {success}{'' if success else ' — ' + err})")
     return success, err
 
@@ -1543,6 +1595,34 @@ elif "Export" in view_mode:
                 f"attendance_{get_ist_now().date()}.csv", "text/csv")
         else:
             st.info("No attendance records yet.")
+
+        st.divider()
+        st.markdown('<div class="section-header">📧 EMAIL DELIVERY LOG (ADMIN ONLY)</div>', unsafe_allow_html=True)
+        if not _gmail_configured():
+            st.markdown(
+                '<div class="alert-card-amber">⚠️ <b>Gmail sender is not configured.</b> No OTP emails can be sent '
+                'until <code>GMAIL_ADDRESS</code> and <code>GMAIL_APP_PASSWORD</code> are set in '
+                '<code>.streamlit/secrets.toml</code>. See the comment block at the top of app.py for the exact steps.</div>',
+                unsafe_allow_html=True
+            )
+        if _EMAIL_LOG_FILE.exists():
+            with open(_EMAIL_LOG_FILE, "r") as f:
+                email_log = json.load(f)
+            if email_log:
+                email_df = pd.DataFrame(email_log).sort_values("time", ascending=False)
+                st.dataframe(email_df, use_container_width=True, height=260)
+                fail_count = int((~email_df["success"]).sum())
+                if fail_count:
+                    st.markdown(
+                        f'<div class="alert-card-amber">⚠️ {fail_count} send attempt(s) failed. '
+                        f'Check the "error" column above — the most common causes are a missing/incorrect '
+                        f'App Password, or 2-Step Verification not being enabled on the Gmail account.</div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.info("No email send attempts logged yet.")
+        else:
+            st.info("No email send attempts logged yet.")
 
 elif "Account" in view_mode:
     st.markdown('<h2>👤 MY ACCOUNT</h2>', unsafe_allow_html=True)
