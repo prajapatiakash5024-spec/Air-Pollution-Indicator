@@ -407,13 +407,11 @@ def _send_reset_email(email: str, otp: str, name: str) -> tuple:
     print(f"[OTP] {email}: {otp} (email sent: {success}{'' if success else ' — ' + err})")
     return success, err
 
-def _send_sms_otp(phone: str, otp: str, name: str) -> tuple:
-    """Generates + stores the OTP (keyed by the user's email so the rest of the
-    reset flow stays unchanged), and texts it to the user's mobile via Twilio.
-    Returns (success: bool, error_message: str)."""
-    # NOTE: the caller is responsible for passing the matching account email
-    # via st.session_state.fp_email so _verify_otp can look the token up.
-    target_key = st.session_state.get("fp_email", phone)
+def _send_sms_otp(phone: str, otp: str, name: str, token_key: str = None) -> tuple:
+    """Generates + stores the OTP (keyed by the account's email, so the rest of
+    the reset flow can reuse _verify_otp unchanged), and texts it to the user's
+    mobile via Twilio. Returns (success: bool, error_message: str)."""
+    target_key = token_key or phone
     st.session_state.reset_tokens[target_key] = {
         "otp": otp,
         "expires": get_ist_now() + datetime.timedelta(minutes=10),
@@ -1005,7 +1003,7 @@ def show_auth_screen():
                                 otp = _generate_otp()
                                 user_name = st.session_state.users_db[matched_email]["name"]
                                 with st.spinner("📨 Sending OTP via SMS..."):
-                                    _send_sms_otp(phone_clean, otp, user_name)  # failures logged server-side only
+                                    _send_sms_otp(phone_clean, otp, user_name, token_key=matched_email)  # failures logged server-side only
                                 st.session_state.fp_channel = "phone"
                                 st.session_state.fp_email = matched_email
                                 st.session_state.fp_phone = phone_clean
@@ -1103,7 +1101,7 @@ def show_auth_screen():
                         if fp_channel == "phone":
                             phone_disp = st.session_state.get("fp_phone", "")
                             with st.spinner("📨 Resending OTP via SMS..."):
-                                _send_sms_otp(phone_disp, new_otp, user_name)
+                                _send_sms_otp(phone_disp, new_otp, user_name, token_key=fp_email_display)
                             st.session_state.fp_msg = (
                                 f"✅ New OTP sent via SMS to {masked}. Valid for 10 minutes.",
                                 "success"
