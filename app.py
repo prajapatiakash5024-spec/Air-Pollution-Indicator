@@ -364,7 +364,7 @@ def _record_attendance(email, name, event="login"):
     _save_attendance(log)
 
 # ══════════════════════════════════════════════════════════════════
-# PASSWORD RESET — OTP SYSTEM (delivered via real Gmail SMTP)
+# PASSWORD RESET / OTP SYSTEM (delivered via real Gmail SMTP or Twilio SMS)
 # ══════════════════════════════════════════════════════════════════
 if "reset_tokens" not in st.session_state:
     st.session_state.reset_tokens = {}
@@ -407,9 +407,9 @@ def _send_reset_email(email: str, otp: str, name: str) -> tuple:
     print(f"[OTP] {email}: {otp} (email sent: {success}{'' if success else ' — ' + err})")
     return success, err
 
-def _send_sms_otp(phone: str, otp: str, name: str, token_key: str = None) -> tuple:
-    """Generates + stores the OTP (keyed by the account's email, so the rest of
-    the reset flow can reuse _verify_otp unchanged), and texts it to the user's
+def _send_sms_otp(phone: str, otp: str, name: str, token_key: str = None, purpose: str = "reset") -> tuple:
+    """Generates + stores the OTP (keyed by the account's email by default, so the rest of
+    the reset/login flow can reuse _verify_otp unchanged), and texts it to the user's
     mobile via Twilio. Returns (success: bool, error_message: str)."""
     target_key = token_key or phone
     st.session_state.reset_tokens[target_key] = {
@@ -417,8 +417,9 @@ def _send_sms_otp(phone: str, otp: str, name: str, token_key: str = None) -> tup
         "expires": get_ist_now() + datetime.timedelta(minutes=10),
         "name": name,
     }
+    action = "login" if purpose == "login" else "password reset"
     body = (
-        f"AQI Command Center: Hi {name.split()[0] if name else ''}, your password reset OTP is {otp}. "
+        f"AQI Command Center: Hi {name.split()[0] if name else ''}, your {action} OTP is {otp}. "
         f"Valid for 10 minutes. Do not share this code with anyone."
     )
     success, err = _send_twilio_sms(phone, body)
@@ -458,6 +459,11 @@ def init_session():
         "fp_email": "",
         "fp_msg": ("", ""),
         "fe_msg": ("", ""),
+        # Mobile-number OTP login flow
+        "ml_step": 1,
+        "ml_phone": "",
+        "ml_email": "",
+        "ml_msg": ("", ""),
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -838,8 +844,8 @@ def show_auth_screen():
             css_cls = "auth-success" if msg_type=="success" else ("auth-error" if msg_type=="error" else "auth-info")
             st.markdown(f'<div class="{css_cls}">{msg_text}</div>', unsafe_allow_html=True)
 
-        tab_login, tab_reg, tab_fp, tab_fe = st.tabs(
-            ["🔐  LOGIN", "📡  REGISTER", "🔑  FORGOT PASSWORD", "✉️  FORGOT EMAIL"]
+        tab_login, tab_mobile, tab_reg, tab_fp, tab_fe = st.tabs(
+            ["🔐  LOGIN", "📱  MOBILE LOGIN", "📡  REGISTER", "🔑  FORGOT PASSWORD", "✉️  FORGOT EMAIL"]
         )
 
         with tab_login:
@@ -874,6 +880,142 @@ def show_auth_screen():
                     st.rerun()
 
             st.markdown('<div style="text-align:center;margin-top:12px;font-family:Share Tech Mono;font-size:0.62rem;color:#2a4a6a;">──── SECURE · AES-256 ENCRYPTED ────</div>', unsafe_allow_html=True)
+
+        with tab_mobile:
+            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-family:Share Tech Mono;font-size:0.65rem;color:#4a6a8a;'
+                'letter-spacing:2px;margin-bottom:14px;text-align:center;">'
+                'LOGIN WITH YOUR MOBILE NUMBER VIA OTP</div>',
+                unsafe_allow_html=True
+            )
+
+            ml_msg_text, ml_msg_type = st.session_state.ml_msg
+            if ml_msg_text:
+                ml_css = ("auth-success" if ml_msg_type == "success"
+                          else "auth-error" if ml_msg_type == "error"
+                          else "auth-info")
+                st.markdown(f'<div class="{ml_css}">{ml_msg_text}</div>', unsafe_allow_html=True)
+
+            if st.session_state.ml_step == 1:
+                st.markdown(
+                    '<div class="otp-box">'
+                    '<div style="font-family:Orbitron,sans-serif;font-size:0.78rem;color:#00e5ff;'
+                    'letter-spacing:2px;margin-bottom:10px;">STEP 1 OF 2 · ENTER MOBILE NUMBER</div>'
+                    '<div style="font-family:Exo 2;font-size:0.82rem;color:#5a7a9a;">'
+                    'We will text a 6-digit OTP to your registered mobile number.</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+                with st.form("mobile_login_identify_form", clear_on_submit=False):
+                    ml_phone_input = st.text_input(
+                        "📱  Registered Mobile Number", placeholder="+91XXXXXXXXXX", key="ml_phone_input"
+                    )
+                    ml_send_btn = st.form_submit_button("📨  SEND LOGIN OTP", use_container_width=True)
+
+                if ml_send_btn:
+                    phone_clean = _normalize_phone(ml_phone_input)
+                    if not phone_clean:
+                        st.session_state.ml_msg = ("❌ Please enter a valid mobile number.", "error")
+                        st.rerun()
+                    else:
+                        matched_email = None
+                        for em, ud in st.session_state.users_db.items():
+                            if ud.get("phone") == phone_clean:
+                                matched_email = em
+                                break
+                        if not matched_email:
+                            st.session_state.ml_msg = (
+                                "❌ No account found with this mobile number. Please register first "
+                                "or use email login.",
+                                "error"
+                            )
+                            st.rerun()
+                        else:
+                            otp = _generate_otp()
+                            user_name = st.session_state.users_db[matched_email]["name"]
+                            with st.spinner("📨 Sending OTP via SMS..."):
+                                _send_sms_otp(phone_clean, otp, user_name, token_key=matched_email, purpose="login")
+                            st.session_state.ml_phone = phone_clean
+                            st.session_state.ml_email = matched_email
+                            st.session_state.ml_step  = 2
+                            st.session_state.ml_msg = (
+                                f"✅ OTP sent via SMS to {phone_clean[:4]}****{phone_clean[-2:]}. "
+                                f"Valid for 10 minutes.",
+                                "success"
+                            )
+                            st.rerun()
+
+            elif st.session_state.ml_step == 2:
+                phone_disp = st.session_state.ml_phone
+                masked = phone_disp[:4] + "****" + phone_disp[-2:] if phone_disp else "your number"
+                token_info = st.session_state.reset_tokens.get(st.session_state.ml_email)
+                if token_info:
+                    mins_left = max(0, int((token_info["expires"] - get_ist_now()).total_seconds() // 60))
+                    st.markdown(
+                        f'<div class="otp-box">'
+                        f'<div class="otp-sent-badge">📨 OTP SENT VIA SMS TO {masked}</div>'
+                        f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;margin-bottom:6px;">'
+                        f'⏱️ Expires in <b style="color:#ffaa00;">{mins_left} min</b></div>'
+                        f'<div style="font-family:Exo 2;font-size:0.72rem;color:#5a7a9a;">'
+                        f'Check your SMS inbox and enter the 6-digit code below.</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+                with st.form("mobile_login_verify_form", clear_on_submit=False):
+                    ml_otp_input = st.text_input("🔢  Enter 6-Digit OTP", placeholder="123456", max_chars=6, key="ml_otp_input")
+                    col_verify, col_back = st.columns(2)
+                    with col_verify:
+                        ml_verify_btn = st.form_submit_button("🚀  VERIFY & LOGIN", use_container_width=True)
+                    with col_back:
+                        ml_back_btn = st.form_submit_button("↩️  BACK", use_container_width=True)
+
+                if ml_back_btn:
+                    st.session_state.ml_step = 1
+                    st.session_state.ml_msg  = ("", "")
+                    st.rerun()
+
+                if ml_verify_btn:
+                    ok, verify_msg = _verify_otp(st.session_state.ml_email, ml_otp_input)
+                    if not ok:
+                        st.session_state.ml_msg = ("❌ " + verify_msg, "error")
+                        st.rerun()
+                    else:
+                        email = st.session_state.ml_email
+                        if email in st.session_state.reset_tokens:
+                            del st.session_state.reset_tokens[email]
+                        st.session_state.users_db[email]["last_login"] = get_ist_now().strftime("%Y-%m-%d %H:%M IST")
+                        _save_users_db(st.session_state.users_db)
+                        _record_attendance(email, st.session_state.users_db[email]["name"], "login_mobile_otp")
+                        st.session_state.logged_in = True
+                        st.session_state.current_user = email
+                        st.session_state.ml_step = 1
+                        st.session_state.ml_phone = ""
+                        st.session_state.ml_email = ""
+                        st.session_state.ml_msg = ("", "")
+                        st.session_state.auth_msg = ("", "")
+                        st.session_state.login_anim = True
+                        st.rerun()
+
+                st.markdown(
+                    '<div style="text-align:center;margin-top:12px;">'
+                    '<span style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;">Didn\'t receive OTP? </span>',
+                    unsafe_allow_html=True
+                )
+                if st.button("🔄  Resend OTP", key="ml_resend_otp_btn", use_container_width=False):
+                    email = st.session_state.ml_email
+                    if email in st.session_state.users_db:
+                        new_otp   = _generate_otp()
+                        user_name = st.session_state.users_db[email]["name"]
+                        with st.spinner("📨 Resending OTP via SMS..."):
+                            _send_sms_otp(phone_disp, new_otp, user_name, token_key=email, purpose="login")
+                        st.session_state.ml_msg = (
+                            f"✅ New OTP sent via SMS to {masked}. Valid for 10 minutes.",
+                            "success"
+                        )
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         with tab_reg:
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
