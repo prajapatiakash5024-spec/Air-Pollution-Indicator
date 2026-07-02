@@ -8,6 +8,10 @@ import json
 import hashlib
 import re
 import smtplib
+import uuid
+import base64
+import urllib.parse
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formatdate, make_msgid
@@ -113,6 +117,186 @@ def _send_gmail(to_email: str, subject: str, html_body: str, text_body: str) -> 
         return False, str(e)
 
 # ══════════════════════════════════════════════════════════════════
+# GOOGLE OAUTH CONFIG ("Continue with Google")
+# ══════════════════════════════════════════════════════════════════
+# Set these via .streamlit/secrets.toml:
+#   GOOGLE_CLIENT_ID     = "xxxxxxxxxx.apps.googleusercontent.com"
+#   GOOGLE_CLIENT_SECRET = "xxxxxxxxxxxxxxxxxxxxxxxx"
+#   GOOGLE_REDIRECT_URI  = "http://localhost:8501"   # or your deployed app URL
+# Create these at https://console.cloud.google.com/apis/credentials
+# -> "Create Credentials" -> "OAuth client ID" -> "Web application".
+# Add GOOGLE_REDIRECT_URI to the "Authorized redirect URIs" list in that
+# same Google Cloud console screen (it must match exactly, including
+# http/https and trailing slash or lack thereof).
+GOOGLE_CLIENT_ID     = st.secrets.get("GOOGLE_CLIENT_ID", "") if hasattr(st, "secrets") else ""
+GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "") if hasattr(st, "secrets") else ""
+GOOGLE_REDIRECT_URI  = st.secrets.get("GOOGLE_REDIRECT_URI", "") if hasattr(st, "secrets") else ""
+GOOGLE_AUTH_ENDPOINT  = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+def _google_configured() -> bool:
+    return bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI)
+
+def _get_google_auth_url() -> str:
+    """Builds the Google OAuth consent-screen URL for the 'Continue with Google' button."""
+    if "oauth_state" not in st.session_state:
+        st.session_state.oauth_state = uuid.uuid4().hex
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "online",
+        "prompt": "select_account",
+        "state": st.session_state.oauth_state,
+    }
+    return GOOGLE_AUTH_ENDPOINT + "?" + urllib.parse.urlencode(params)
+
+def _exchange_google_code(code: str) -> tuple:
+    """Exchanges an OAuth authorization code for the user's Google profile.
+    Returns (success: bool, profile_dict_or_error: dict|str)."""
+    try:
+        token_resp = requests.post(GOOGLE_TOKEN_ENDPOINT, data={
+            "code": code,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "redirect_uri": GOOGLE_REDIRECT_URI,
+            "grant_type": "authorization_code",
+        }, timeout=15)
+        token_resp.raise_for_status()
+        access_token = token_resp.json().get("access_token")
+        if not access_token:
+            return False, "Google did not return an access token."
+        userinfo_resp = requests.get(
+            GOOGLE_USERINFO_ENDPOINT,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=15
+        )
+        userinfo_resp.raise_for_status()
+        return True, userinfo_resp.json()
+    except Exception as e:
+        return False, str(e)
+
+def _handle_google_callback():
+    """Checks the URL for a Google OAuth 'code' param (set after the user approves
+    consent) and, if present, logs them in / auto-registers them, then clears
+    the URL so a page refresh doesn't replay the login."""
+    if st.session_state.get("logged_in"):
+        return
+    if not _google_configured():
+        return
+    query = st.query_params
+    code = query.get("code")
+    if not code:
+        return
+    ok, profile = _exchange_google_code(code)
+    st.query_params.clear()
+    if not ok:
+        st.session_state.auth_msg = (f"❌ Google sign-in failed: {profile}", "error")
+        return
+    email = (profile.get("email") or "").strip().lower()
+    name  = profile.get("name") or (email.split("@")[0] if email else "Google User")
+    if not email:
+        st.session_state.auth_msg = ("❌ Google did not share an email address.", "error")
+        return
+    if email not in st.session_state.users_db:
+        st.session_state.users_db[email] = {
+            "name": name, "password_hash": _hash(uuid.uuid4().hex),
+            "role": "Analyst", "joined": get_ist_now().date().isoformat(),
+            "last_login": None, "alerts_enabled": True,
+            "alert_threshold": 200, "theme": "Cyber Blue", "notifications": [],
+            "is_admin": False, "phone": "", "auth_provider": "google",
+        }
+    st.session_state.users_db[email]["last_login"] = get_ist_now().strftime("%Y-%m-%d %H:%M IST")
+    _save_users_db(st.session_state.users_db)
+    _record_attendance(email, st.session_state.users_db[email]["name"], "login_google")
+    st.session_state.logged_in = True
+    st.session_state.current_user = email
+    st.session_state.auth_msg = ("", "")
+    st.session_state.login_anim = True
+
+# ══════════════════════════════════════════════════════════════════
+# TWILIO SMS CONFIG (for real mobile OTP delivery)
+# ══════════════════════════════════════════════════════════════════
+# Set these via .streamlit/secrets.toml:
+#   TWILIO_ACCOUNT_SID  = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#   TWILIO_AUTH_TOKEN   = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#   TWILIO_FROM_NUMBER  = "+1XXXXXXXXXX"   # a number/Messaging Service purchased in Twilio
+# Sign up and get these at https://console.twilio.com — trial accounts can
+# only text numbers you've verified in the console under "Verified Caller IDs".
+TWILIO_ACCOUNT_SID = st.secrets.get("TWILIO_ACCOUNT_SID", "") if hasattr(st, "secrets") else ""
+TWILIO_AUTH_TOKEN  = st.secrets.get("TWILIO_AUTH_TOKEN", "") if hasattr(st, "secrets") else ""
+TWILIO_FROM_NUMBER = st.secrets.get("TWILIO_FROM_NUMBER", "") if hasattr(st, "secrets") else ""
+
+def _twilio_configured() -> bool:
+    return bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER)
+
+def _normalize_phone(raw: str) -> str:
+    """Normalizes a phone number to E.164-ish format (+<countrycode><number>).
+    Returns '' if it doesn't look like a valid number. Defaults to +91 (India)
+    when no country code is given and the number is 10 digits."""
+    if not raw:
+        return ""
+    digits = re.sub(r"[^\d+]", "", raw.strip())
+    if digits.startswith("+"):
+        cleaned = "+" + re.sub(r"[^\d]", "", digits[1:])
+    elif len(digits) == 10:
+        cleaned = "+91" + digits
+    elif digits.startswith("0") and len(digits) == 11:
+        cleaned = "+91" + digits[1:]
+    else:
+        cleaned = "+" + digits if digits else ""
+    if re.match(r"^\+\d{8,15}$", cleaned):
+        return cleaned
+    return ""
+
+def _log_sms_attempt(to_phone: str, success: bool, err: str):
+    """Writes every SMS send attempt to a local log file so the app owner can
+    diagnose delivery problems without exposing errors to end users."""
+    try:
+        entry = {
+            "to": to_phone,
+            "success": success,
+            "error": err,
+            "time": get_ist_now().strftime("%Y-%m-%d %H:%M:%S IST"),
+        }
+        log = []
+        if _SMS_LOG_FILE.exists():
+            with open(_SMS_LOG_FILE, "r") as f:
+                log = json.load(f)
+        log.append(entry)
+        log = log[-200:]
+        with open(_SMS_LOG_FILE, "w") as f:
+            json.dump(log, f, indent=2)
+    except Exception:
+        pass
+
+def _send_twilio_sms(to_phone: str, body: str) -> tuple:
+    """Sends an SMS via the Twilio REST API (plain HTTP, no SDK needed).
+    Returns (success: bool, error_message: str)."""
+    if not _twilio_configured():
+        return False, "SMS sender is not configured (missing TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER in .streamlit/secrets.toml)."
+    try:
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
+        resp = requests.post(
+            url,
+            data={"To": to_phone, "From": TWILIO_FROM_NUMBER, "Body": body},
+            auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
+            _log_sms_attempt(to_phone, True, "")
+            return True, ""
+        else:
+            err = f"Twilio returned HTTP {resp.status_code}: {resp.text[:300]}"
+            _log_sms_attempt(to_phone, False, err)
+            return False, err
+    except Exception as e:
+        _log_sms_attempt(to_phone, False, str(e))
+        return False, str(e)
+
+# ══════════════════════════════════════════════════════════════════
 # PERSISTENT STORAGE
 # ══════════════════════════════════════════════════════════════════
 import os, pathlib
@@ -121,6 +305,7 @@ _DATA_DIR.mkdir(exist_ok=True)
 _USERS_FILE      = _DATA_DIR / "users_db.json"
 _ATTENDANCE_FILE = _DATA_DIR / "attendance_log.json"
 _EMAIL_LOG_FILE  = _DATA_DIR / "email_log.json"
+_SMS_LOG_FILE    = _DATA_DIR / "sms_log.json"
 
 def _hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
@@ -220,6 +405,26 @@ def _send_reset_email(email: str, otp: str, name: str) -> tuple:
     )
     success, err = _send_gmail(email, subject, html_body, text_body)
     print(f"[OTP] {email}: {otp} (email sent: {success}{'' if success else ' — ' + err})")
+    return success, err
+
+def _send_sms_otp(phone: str, otp: str, name: str) -> tuple:
+    """Generates + stores the OTP (keyed by the user's email so the rest of the
+    reset flow stays unchanged), and texts it to the user's mobile via Twilio.
+    Returns (success: bool, error_message: str)."""
+    # NOTE: the caller is responsible for passing the matching account email
+    # via st.session_state.fp_email so _verify_otp can look the token up.
+    target_key = st.session_state.get("fp_email", phone)
+    st.session_state.reset_tokens[target_key] = {
+        "otp": otp,
+        "expires": get_ist_now() + datetime.timedelta(minutes=10),
+        "name": name,
+    }
+    body = (
+        f"AQI Command Center: Hi {name.split()[0] if name else ''}, your password reset OTP is {otp}. "
+        f"Valid for 10 minutes. Do not share this code with anyone."
+    )
+    success, err = _send_twilio_sms(phone, body)
+    print(f"[SMS OTP] {phone}: {otp} (sms sent: {success}{'' if success else ' — ' + err})")
     return success, err
 
 def _verify_otp(email: str, otp_input: str) -> tuple:
@@ -357,6 +562,13 @@ hr{border-color:var(--border)!important;margin:1.5rem 0!important;}
 .ist-time-display{font-family:'Share Tech Mono',monospace;font-size:1.35rem;color:#00e5ff;font-weight:700;letter-spacing:3px;}
 .ist-date-display{font-family:'Exo 2',sans-serif;font-size:0.68rem;color:#5a7a9a;margin-top:3px;letter-spacing:1px;}
 .ist-label{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:#4a6a8a;letter-spacing:2px;margin-bottom:4px;}
+/* GOOGLE SIGN-IN BUTTON */
+.google-btn-wrap{display:flex;justify-content:flex-end;padding:4px 4px 0 0;}
+.google-btn{display:inline-flex;align-items:center;gap:10px;background:#ffffff;color:#3c4043!important;
+    font-family:'Exo 2',sans-serif;font-weight:600;font-size:0.82rem;border-radius:10px;padding:9px 18px;
+    text-decoration:none!important;border:1px solid rgba(0,0,0,0.08);box-shadow:0 2px 10px rgba(0,0,0,0.25);
+    transition:all 0.2s ease;}
+.google-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,0.35);transform:translateY(-1px);}
 </style>
 """, unsafe_allow_html=True)
 
@@ -593,6 +805,23 @@ def render_ist_clock():
 # ══════════════════════════════════════════════════════════════════
 def show_auth_screen():
     st.markdown('<div class="grid-bg"></div><div class="scan-line"></div>', unsafe_allow_html=True)
+
+    top_l, top_r = st.columns([3, 1])
+    with top_r:
+        if _google_configured():
+            st.markdown(
+                f'<div class="google-btn-wrap"><a class="google-btn" href="{_get_google_auth_url()}">'
+                f'<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.4 18.9 12 24 12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 16.3 3 9.7 7.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.4 0 10.3-2.1 14-5.5l-6.5-5.4C29.5 35.9 26.9 37 24 37c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.6 40.6 16.3 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.5 5.4C41.9 35.8 45 30.3 45 24c0-1.4-.1-2.7-.4-3.5z"/></svg>'
+                f'Continue with Google</a></div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                '<div class="google-btn-wrap"><span style="font-family:Share Tech Mono;font-size:0.6rem;'
+                'color:#4a6a8a;">Google Sign-In not configured</span></div>',
+                unsafe_allow_html=True
+            )
+
     _, mid, _ = st.columns([1, 1.2, 1])
     with mid:
         st.markdown(
@@ -653,6 +882,7 @@ def show_auth_screen():
             with st.form("register_form", clear_on_submit=False):
                 reg_name  = st.text_input("👤  Full Name", placeholder="Dr. Aditya Kumar")
                 reg_email = st.text_input("📧  Email", placeholder="you@domain.com")
+                reg_phone = st.text_input("📱  Mobile Number", placeholder="+91XXXXXXXXXX")
                 reg_role  = st.selectbox("🏷️  Role", ["Analyst","Researcher","Policy Maker","Student","Journalist"])
                 reg_pw    = st.text_input("🔒  Password", type="password", placeholder="8+ chars · Uppercase · Number · Symbol")
                 reg_pw2   = st.text_input("🔒  Confirm Password", type="password", placeholder="Re-enter password")
@@ -664,6 +894,8 @@ def show_auth_screen():
                 if not reg_name.strip(): errors.append("Name required")
                 if not is_valid_email(reg_email): errors.append("Valid email required")
                 if reg_email in st.session_state.users_db: errors.append("Email already registered")
+                phone_clean = _normalize_phone(reg_phone)
+                if not phone_clean: errors.append("Valid mobile number required")
                 if not is_strong_password(reg_pw): errors.append("Password too weak (need uppercase, number, symbol, 8+ chars)")
                 if reg_pw != reg_pw2: errors.append("Passwords don't match")
                 if not terms: errors.append("Accept Terms of Service")
@@ -676,7 +908,7 @@ def show_auth_screen():
                         "role": reg_role, "joined": get_ist_now().date().isoformat(),
                         "last_login": None, "alerts_enabled": True,
                         "alert_threshold": 200, "theme": "Cyber Blue", "notifications": [],
-                        "is_admin": False,
+                        "is_admin": False, "phone": phone_clean,
                     }
                     _save_users_db(st.session_state.users_db)
                     _record_attendance(reg_email, reg_name.strip(), "register")
@@ -688,7 +920,7 @@ def show_auth_screen():
             st.markdown(
                 '<div style="font-family:Share Tech Mono;font-size:0.65rem;color:#4a6a8a;'
                 'letter-spacing:2px;margin-bottom:16px;text-align:center;">'
-                'RESET YOUR PASSWORD VIA EMAIL OTP</div>',
+                'RESET YOUR PASSWORD VIA OTP</div>',
                 unsafe_allow_html=True
             )
 
@@ -703,58 +935,109 @@ def show_auth_screen():
                 st.markdown(
                     '<div class="otp-box">'
                     '<div style="font-family:Orbitron,sans-serif;font-size:0.78rem;color:#00e5ff;'
-                    'letter-spacing:2px;margin-bottom:10px;">STEP 1 OF 2 · VERIFY YOUR EMAIL</div>'
+                    'letter-spacing:2px;margin-bottom:10px;">STEP 1 OF 2 · VERIFY YOUR IDENTITY</div>'
                     '<div style="font-family:Exo 2;font-size:0.82rem;color:#5a7a9a;margin-bottom:14px;">'
-                    'Enter the email address registered with your account.<br>'
-                    'A 6-digit OTP will be sent to that inbox via Gmail.</div>'
+                    'Choose how you want to receive your 6-digit OTP.</div>'
                     '</div>',
                     unsafe_allow_html=True
                 )
-                with st.form("fp_email_form", clear_on_submit=False):
-                    fp_email_input = st.text_input(
-                        "📧  Registered Email", placeholder="you@domain.com", key="fp_email_input"
-                    )
+
+                fp_method = st.radio(
+                    "📨  Send OTP via", ["📧  Email", "📱  Mobile (SMS)"],
+                    horizontal=True, key="fp_method_radio"
+                )
+
+                with st.form("fp_identify_form", clear_on_submit=False):
+                    if "Email" in fp_method:
+                        fp_identifier_input = st.text_input(
+                            "📧  Registered Email", placeholder="you@domain.com", key="fp_email_input"
+                        )
+                    else:
+                        fp_identifier_input = st.text_input(
+                            "📱  Registered Mobile Number", placeholder="+91XXXXXXXXXX", key="fp_phone_input"
+                        )
                     send_otp_btn = st.form_submit_button("📨  SEND RESET OTP", use_container_width=True)
 
                 if send_otp_btn:
-                    fe = fp_email_input.strip().lower()
-                    if not is_valid_email(fe):
-                        st.session_state.fp_msg = ("❌ Please enter a valid email address.", "error")
-                        st.rerun()
-                    elif fe not in st.session_state.users_db:
-                        st.session_state.fp_msg = (
-                            "📨 If this email is registered, an OTP has been sent. Check your inbox.",
-                            "info"
-                        )
-                        st.rerun()
+                    if "Email" in fp_method:
+                        fe = fp_identifier_input.strip().lower()
+                        if not is_valid_email(fe):
+                            st.session_state.fp_msg = ("❌ Please enter a valid email address.", "error")
+                            st.rerun()
+                        elif fe not in st.session_state.users_db:
+                            st.session_state.fp_msg = (
+                                "📨 If this email is registered, an OTP has been sent. Check your inbox.",
+                                "info"
+                            )
+                            st.rerun()
+                        else:
+                            otp = _generate_otp()
+                            user_name = st.session_state.users_db[fe]["name"]
+                            with st.spinner("📨 Sending OTP to your email inbox..."):
+                                _send_reset_email(fe, otp, user_name)  # failures are logged server-side only
+                            st.session_state.fp_channel = "email"
+                            st.session_state.fp_email = fe
+                            st.session_state.fp_step  = 2
+                            st.session_state.fp_msg = (
+                                f"✅ OTP sent to {fe[:3]}*{fe[fe.index('@'):]}.  Valid for 10 minutes. "
+                                f"Check your inbox (and spam folder).",
+                                "success"
+                            )
+                            st.rerun()
                     else:
-                        otp = _generate_otp()
-                        user_name = st.session_state.users_db[fe]["name"]
-                        with st.spinner("📨 Sending OTP to your Gmail inbox..."):
-                            _send_reset_email(fe, otp, user_name)  # failures are logged server-side only
-                        st.session_state.fp_email = fe
-                        st.session_state.fp_step  = 2
-                        st.session_state.fp_msg = (
-                            f"✅ OTP sent to {fe[:3]}*{fe[fe.index('@'):]}.  Valid for 10 minutes. "
-                            f"Check your inbox (and spam folder).",
-                            "success"
-                        )
-                        st.rerun()
+                        phone_clean = _normalize_phone(fp_identifier_input)
+                        if not phone_clean:
+                            st.session_state.fp_msg = ("❌ Please enter a valid mobile number.", "error")
+                            st.rerun()
+                        else:
+                            matched_email = None
+                            for em, ud in st.session_state.users_db.items():
+                                if ud.get("phone") == phone_clean:
+                                    matched_email = em
+                                    break
+                            if not matched_email:
+                                st.session_state.fp_msg = (
+                                    "📨 If this number is registered, an OTP has been sent.",
+                                    "info"
+                                )
+                                st.rerun()
+                            else:
+                                otp = _generate_otp()
+                                user_name = st.session_state.users_db[matched_email]["name"]
+                                with st.spinner("📨 Sending OTP via SMS..."):
+                                    _send_sms_otp(phone_clean, otp, user_name)  # failures logged server-side only
+                                st.session_state.fp_channel = "phone"
+                                st.session_state.fp_email = matched_email
+                                st.session_state.fp_phone = phone_clean
+                                st.session_state.fp_step  = 2
+                                st.session_state.fp_msg = (
+                                    f"✅ OTP sent via SMS to {phone_clean[:4]}****{phone_clean[-2:]}. "
+                                    f"Valid for 10 minutes.",
+                                    "success"
+                                )
+                                st.rerun()
 
             elif st.session_state.fp_step == 2:
                 fp_email_display = st.session_state.fp_email
-                masked = fp_email_display[:3] + "*" + fp_email_display[fp_email_display.index("@"):]
+                fp_channel = st.session_state.get("fp_channel", "email")
+                if fp_channel == "phone":
+                    phone_disp = st.session_state.get("fp_phone", "")
+                    masked = phone_disp[:4] + "****" + phone_disp[-2:] if phone_disp else "your number"
+                    badge_txt = f"📨 OTP SENT VIA SMS TO {masked}"
+                else:
+                    masked = fp_email_display[:3] + "*" + fp_email_display[fp_email_display.index("@"):]
+                    badge_txt = f"📨 OTP SENT TO {masked}"
 
                 token_info = st.session_state.reset_tokens.get(fp_email_display)
                 if token_info:
                     mins_left = max(0, int((token_info["expires"] - get_ist_now()).total_seconds() // 60))
                     st.markdown(
                         f'<div class="otp-box">'
-                        f'<div class="otp-sent-badge">📨 OTP SENT TO {masked}</div>'
+                        f'<div class="otp-sent-badge">{badge_txt}</div>'
                         f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;margin-bottom:6px;">'
                         f'⏱️ Expires in <b style="color:#ffaa00;">{mins_left} min</b></div>'
                         f'<div style="font-family:Exo 2;font-size:0.72rem;color:#5a7a9a;">'
-                        f'Open your Gmail inbox and enter the 6-digit code below.</div>'
+                        f'{"Check your SMS inbox" if fp_channel=="phone" else "Open your email inbox"} and enter the 6-digit code below.</div>'
                         f'</div>',
                         unsafe_allow_html=True
                     )
@@ -766,7 +1049,7 @@ def show_auth_screen():
                 )
 
                 with st.form("fp_reset_form", clear_on_submit=False):
-                    otp_input   = st.text_input("🔢  Enter 6-Digit OTP (from your email)", placeholder="123456", max_chars=6, key="fp_otp_input")
+                    otp_input   = st.text_input("🔢  Enter 6-Digit OTP", placeholder="123456", max_chars=6, key="fp_otp_input")
                     new_pw      = st.text_input("🔒  New Password", type="password", placeholder="8+ chars · Uppercase · Number · Symbol", key="fp_new_pw")
                     confirm_pw  = st.text_input("🔒  Confirm New Password", type="password", placeholder="Re-enter new password", key="fp_confirm_pw")
                     col_reset, col_back = st.columns(2)
@@ -817,12 +1100,21 @@ def show_auth_screen():
                     if fp_email_display in st.session_state.users_db:
                         new_otp   = _generate_otp()
                         user_name = st.session_state.users_db[fp_email_display]["name"]
-                        with st.spinner("📨 Resending OTP..."):
-                            _send_reset_email(fp_email_display, new_otp, user_name)  # failures are logged server-side only
-                        st.session_state.fp_msg = (
-                            f"✅ New OTP sent to {masked}. Valid for 10 minutes.",
-                            "success"
-                        )
+                        if fp_channel == "phone":
+                            phone_disp = st.session_state.get("fp_phone", "")
+                            with st.spinner("📨 Resending OTP via SMS..."):
+                                _send_sms_otp(phone_disp, new_otp, user_name)
+                            st.session_state.fp_msg = (
+                                f"✅ New OTP sent via SMS to {masked}. Valid for 10 minutes.",
+                                "success"
+                            )
+                        else:
+                            with st.spinner("📨 Resending OTP..."):
+                                _send_reset_email(fp_email_display, new_otp, user_name)
+                            st.session_state.fp_msg = (
+                                f"✅ New OTP sent to {masked}. Valid for 10 minutes.",
+                                "success"
+                            )
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -895,8 +1187,10 @@ def show_auth_screen():
             unsafe_allow_html=True
         )
 # ══════════════════════════════════════════════════════════════════
-# GUARD — show login if not authenticated
+# GUARD — process Google OAuth callback, then show login if not authenticated
 # ══════════════════════════════════════════════════════════════════
+_handle_google_callback()
+
 if not st.session_state.logged_in:
     show_auth_screen()
     st.stop()
@@ -1624,6 +1918,36 @@ elif "Export" in view_mode:
         else:
             st.info("No email send attempts logged yet.")
 
+        st.divider()
+        st.markdown('<div class="section-header">📱 SMS DELIVERY LOG (ADMIN ONLY)</div>', unsafe_allow_html=True)
+        if not _twilio_configured():
+            st.markdown(
+                '<div class="alert-card-amber">⚠️ <b>SMS sender is not configured.</b> No OTP SMS can be sent '
+                'until <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code> and '
+                '<code>TWILIO_FROM_NUMBER</code> are set in <code>.streamlit/secrets.toml</code>. '
+                'See the comment block near the top of app.py for the exact steps.</div>',
+                unsafe_allow_html=True
+            )
+        if _SMS_LOG_FILE.exists():
+            with open(_SMS_LOG_FILE, "r") as f:
+                sms_log = json.load(f)
+            if sms_log:
+                sms_df = pd.DataFrame(sms_log).sort_values("time", ascending=False)
+                st.dataframe(sms_df, use_container_width=True, height=260)
+                fail_count_sms = int((~sms_df["success"]).sum())
+                if fail_count_sms:
+                    st.markdown(
+                        f'<div class="alert-card-amber">⚠️ {fail_count_sms} SMS send attempt(s) failed. '
+                        f'Check the "error" column above — common causes are an incorrect Account SID/Auth Token, '
+                        f'an unverified "from" number on a trial account, or an incorrectly formatted phone number '
+                        f'(must be in E.164 format, e.g. +91XXXXXXXXXX).</div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.info("No SMS send attempts logged yet.")
+        else:
+            st.info("No SMS send attempts logged yet.")
+
 elif "Account" in view_mode:
     st.markdown('<h2>👤 MY ACCOUNT</h2>', unsafe_allow_html=True)
     u = st.session_state.users_db[st.session_state.current_user]
@@ -1654,6 +1978,7 @@ elif "Account" in view_mode:
 
         with st.form("update_profile_form"):
             new_name = st.text_input("👤 Display Name", value=u["name"])
+            new_phone = st.text_input("📱 Mobile Number", value=u.get("phone",""))
             new_role = st.selectbox("🏷️ Role", ["Analyst","Researcher","Policy Maker","Student","Journalist"],
                                      index=["Analyst","Researcher","Policy Maker","Student","Journalist"].index(u["role"]))
             alerts_on = st.checkbox("🔔 Enable Alerts", value=u.get("alerts_enabled", True))
@@ -1661,8 +1986,10 @@ elif "Account" in view_mode:
             save_btn = st.form_submit_button("💾 SAVE SETTINGS", use_container_width=True)
 
         if save_btn:
+            phone_clean_acc = _normalize_phone(new_phone) or u.get("phone","")
             st.session_state.users_db[st.session_state.current_user].update({
                 "name": new_name.strip() or u["name"],
+                "phone": phone_clean_acc,
                 "role": new_role,
                 "alerts_enabled": alerts_on,
                 "alert_threshold": new_thresh,
