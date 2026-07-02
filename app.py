@@ -552,14 +552,6 @@ def show_auth_screen():
         <div class="auth-subtitle">INDIA POLLUTION INTELLIGENCE SYSTEM v4.0</div>
         """, unsafe_allow_html=True)
 
-        if not _gmail_configured():
-            st.markdown(
-                '<div class="auth-info">⚙️ Gmail sender not configured yet — OTP emails will not be '
-                'delivered until <code>GMAIL_ADDRESS</code> and <code>GMAIL_APP_PASSWORD</code> are set '
-                'in <code>.streamlit/secrets.toml</code>.</div>',
-                unsafe_allow_html=True
-            )
-
         st.markdown('<div class="auth-card"><div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>', unsafe_allow_html=True)
 
         msg_text, msg_type = st.session_state.auth_msg
@@ -687,21 +679,14 @@ def show_auth_screen():
                         otp = _generate_otp()
                         user_name = st.session_state.users_db[fe]["name"]
                         with st.spinner("📨 Sending OTP to your Gmail inbox..."):
-                            sent_ok, send_err = _send_reset_email(fe, otp, user_name)
+                            _send_reset_email(fe, otp, user_name)  # failures are logged server-side only
                         st.session_state.fp_email = fe
                         st.session_state.fp_step  = 2
-                        if sent_ok:
-                            st.session_state.fp_msg = (
-                                f"✅ OTP emailed to {fe[:3]}*{fe[fe.index('@'):]}.  Valid for 10 minutes. "
-                                f"Check your inbox (and spam folder).",
-                                "success"
-                            )
-                        else:
-                            st.session_state.fp_msg = (
-                                f"⚠️ Could not send the email ({send_err}). The OTP was still generated — "
-                                f"ask your admin to check the Gmail SMTP configuration, then try Resend OTP.",
-                                "error"
-                            )
+                        st.session_state.fp_msg = (
+                            f"✅ OTP sent to {fe[:3]}*{fe[fe.index('@'):]}.  Valid for 10 minutes. "
+                            f"Check your inbox (and spam folder).",
+                            "success"
+                        )
                         st.rerun()
 
             elif st.session_state.fp_step == 2:
@@ -781,17 +766,11 @@ def show_auth_screen():
                         new_otp   = _generate_otp()
                         user_name = st.session_state.users_db[fp_email_display]["name"]
                         with st.spinner("📨 Resending OTP..."):
-                            sent_ok, send_err = _send_reset_email(fp_email_display, new_otp, user_name)
-                        if sent_ok:
-                            st.session_state.fp_msg = (
-                                f"✅ New OTP emailed to {masked}. Valid for 10 minutes.",
-                                "success"
-                            )
-                        else:
-                            st.session_state.fp_msg = (
-                                f"⚠️ Could not resend the email ({send_err}).",
-                                "error"
-                            )
+                            _send_reset_email(fp_email_display, new_otp, user_name)  # failures are logged server-side only
+                        st.session_state.fp_msg = (
+                            f"✅ New OTP sent to {masked}. Valid for 10 minutes.",
+                            "success"
+                        )
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1552,17 +1531,18 @@ elif "Export" in view_mode:
     qs3.metric("Max AQI",        df["AQI"].max())
     qs4.metric("Min AQI",        df["AQI"].min())
 
-    st.divider()
-    st.markdown('<div class="section-header">📑 ATTENDANCE LOG</div>', unsafe_allow_html=True)
-    att_log = _load_attendance()
-    if att_log:
-        att_df = pd.DataFrame(att_log).sort_values("timestamp", ascending=False)
-        st.dataframe(att_df, use_container_width=True, height=300)
-        att_csv = att_df.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download Attendance Log", att_csv,
-            f"attendance_{get_ist_now().date()}.csv", "text/csv")
-    else:
-        st.info("No attendance records yet.")
+    if user_info.get("is_admin"):
+        st.divider()
+        st.markdown('<div class="section-header">📑 ATTENDANCE LOG (ADMIN ONLY)</div>', unsafe_allow_html=True)
+        att_log = _load_attendance()
+        if att_log:
+            att_df = pd.DataFrame(att_log).sort_values("timestamp", ascending=False)
+            st.dataframe(att_df, use_container_width=True, height=300)
+            att_csv = att_df.to_csv(index=False).encode("utf-8")
+            st.download_button("⬇️ Download Attendance Log", att_csv,
+                f"attendance_{get_ist_now().date()}.csv", "text/csv")
+        else:
+            st.info("No attendance records yet.")
 
 elif "Account" in view_mode:
     st.markdown('<h2>👤 MY ACCOUNT</h2>', unsafe_allow_html=True)
