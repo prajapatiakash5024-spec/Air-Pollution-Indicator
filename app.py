@@ -7,6 +7,9 @@ import datetime
 import json
 import hashlib
 import re
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -28,6 +31,43 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ══════════════════════════════════════════════════════════════════
+# GMAIL SMTP CONFIG (for real OTP delivery)
+# ══════════════════════════════════════════════════════════════════
+# Set these via .streamlit/secrets.toml:
+#   GMAIL_ADDRESS = "youraddress@gmail.com"
+#   GMAIL_APP_PASSWORD = "xxxx xxxx xxxx xxxx"   # 16-char Gmail App Password (NOT your normal password)
+# Generate an App Password at: https://myaccount.google.com/apppasswords
+# (Requires 2-Step Verification enabled on the Gmail account.)
+GMAIL_ADDRESS = st.secrets.get("GMAIL_ADDRESS", "") if hasattr(st, "secrets") else ""
+GMAIL_APP_PASSWORD = st.secrets.get("GMAIL_APP_PASSWORD", "") if hasattr(st, "secrets") else ""
+GMAIL_SMTP_HOST = "smtp.gmail.com"
+GMAIL_SMTP_PORT = 587
+
+def _gmail_configured() -> bool:
+    return bool(GMAIL_ADDRESS and GMAIL_APP_PASSWORD)
+
+def _send_gmail(to_email: str, subject: str, html_body: str) -> tuple:
+    """Send an email via Gmail SMTP. Returns (success: bool, error_message: str)."""
+    if not _gmail_configured():
+        return False, "Gmail sender is not configured (missing GMAIL_ADDRESS / GMAIL_APP_PASSWORD in secrets)."
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"AQI Command Center <{GMAIL_ADDRESS}>"
+        msg["To"] = to_email
+        msg.attach(MIMEText(html_body, "html"))
+
+        with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_ADDRESS, [to_email], msg.as_string())
+        return True, ""
+    except Exception as e:
+        return False, str(e)
 
 # ══════════════════════════════════════════════════════════════════
 # PERSISTENT STORAGE
@@ -95,7 +135,7 @@ def _record_attendance(email, name, event="login"):
     _save_attendance(log)
 
 # ══════════════════════════════════════════════════════════════════
-# PASSWORD RESET — OTP SYSTEM
+# PASSWORD RESET — OTP SYSTEM (delivered via real Gmail SMTP)
 # ══════════════════════════════════════════════════════════════════
 if "reset_tokens" not in st.session_state:
     st.session_state.reset_tokens = {}
@@ -103,14 +143,32 @@ if "reset_tokens" not in st.session_state:
 def _generate_otp():
     return str(random.randint(100000, 999999))
 
-def _send_reset_email(email: str, otp: str, name: str) -> bool:
+def _send_reset_email(email: str, otp: str, name: str) -> tuple:
+    """Generates + stores the OTP, and emails it to the user's real inbox via Gmail SMTP.
+    Returns (success: bool, error_message: str)."""
     st.session_state.reset_tokens[email] = {
         "otp": otp,
         "expires": get_ist_now() + datetime.timedelta(minutes=10),
         "name": name,
     }
-    print(f"[DEV] OTP for {email}: {otp}")
-    return True
+
+    subject = "🔐 Your AQI Command Center Password Reset OTP"
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#0a1628;color:#d8f0ff;padding:28px;border-radius:14px;border:1px solid #133a5a;">
+        <h2 style="color:#00e5ff;margin-top:0;">🛰️ AQI Command Center</h2>
+        <p>Hi {name},</p>
+        <p>We received a request to reset your password. Use the OTP below to continue. This code is valid for <b>10 minutes</b>.</p>
+        <div style="text-align:center;margin:24px 0;">
+            <span style="font-size:32px;letter-spacing:8px;font-weight:bold;color:#ffaa00;background:#071020;padding:14px 22px;border-radius:10px;display:inline-block;">{otp}</span>
+        </div>
+        <p style="color:#5a7a9a;font-size:13px;">If you did not request this, you can safely ignore this email — your password will not be changed.</p>
+        <hr style="border-color:#133a5a;">
+        <p style="font-size:11px;color:#4a6a8a;">India AQI Command Center · Real-time Air Quality Intelligence</p>
+    </div>
+    """
+    success, err = _send_gmail(email, subject, html_body)
+    print(f"[OTP] {email}: {otp} (email sent: {success}{'' if success else ' — ' + err})")
+    return success, err
 
 def _verify_otp(email: str, otp_input: str) -> tuple:
     token = st.session_state.reset_tokens.get(email)
@@ -144,6 +202,7 @@ def init_session():
         "fp_step": 1,
         "fp_email": "",
         "fp_msg": ("", ""),
+        "fe_msg": ("", ""),
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -153,7 +212,6 @@ def init_session():
         st.session_state.users_db = _load_users_db()
 
 init_session()
-
 # ══════════════════════════════════════════════════════════════════
 # CSS
 # ══════════════════════════════════════════════════════════════════
@@ -478,7 +536,6 @@ def render_ist_clock():
     }})();
     </script>
     """, unsafe_allow_html=True)
-
 # ══════════════════════════════════════════════════════════════════
 # LOGIN SCREEN
 # ══════════════════════════════════════════════════════════════════
@@ -495,6 +552,14 @@ def show_auth_screen():
         <div class="auth-subtitle">INDIA POLLUTION INTELLIGENCE SYSTEM v4.0</div>
         """, unsafe_allow_html=True)
 
+        if not _gmail_configured():
+            st.markdown(
+                '<div class="auth-info">⚙️ Gmail sender not configured yet — OTP emails will not be '
+                'delivered until <code>GMAIL_ADDRESS</code> and <code>GMAIL_APP_PASSWORD</code> are set '
+                'in <code>.streamlit/secrets.toml</code>.</div>',
+                unsafe_allow_html=True
+            )
+
         st.markdown('<div class="auth-card"><div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>', unsafe_allow_html=True)
 
         msg_text, msg_type = st.session_state.auth_msg
@@ -502,7 +567,9 @@ def show_auth_screen():
             css_cls = "auth-success" if msg_type=="success" else ("auth-error" if msg_type=="error" else "auth-info")
             st.markdown(f'<div class="{css_cls}">{msg_text}</div>', unsafe_allow_html=True)
 
-        tab_login, tab_reg, tab_fp = st.tabs(["🔐  LOGIN", "📡  REGISTER", "🔑  FORGOT PASSWORD"])
+        tab_login, tab_reg, tab_fp, tab_fe = st.tabs(
+            ["🔐  LOGIN", "📡  REGISTER", "🔑  FORGOT PASSWORD", "✉️  FORGOT EMAIL"]
+        )
 
         with tab_login:
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
@@ -595,7 +662,7 @@ def show_auth_screen():
                     'letter-spacing:2px;margin-bottom:10px;">STEP 1 OF 2 · VERIFY YOUR EMAIL</div>'
                     '<div style="font-family:Exo 2;font-size:0.82rem;color:#5a7a9a;margin-bottom:14px;">'
                     'Enter the email address registered with your account.<br>'
-                    'A 6-digit OTP will be generated and displayed below (demo mode).</div>'
+                    'A 6-digit OTP will be sent to that inbox via Gmail.</div>'
                     '</div>',
                     unsafe_allow_html=True
                 )
@@ -619,13 +686,22 @@ def show_auth_screen():
                     else:
                         otp = _generate_otp()
                         user_name = st.session_state.users_db[fe]["name"]
-                        _send_reset_email(fe, otp, user_name)
+                        with st.spinner("📨 Sending OTP to your Gmail inbox..."):
+                            sent_ok, send_err = _send_reset_email(fe, otp, user_name)
                         st.session_state.fp_email = fe
                         st.session_state.fp_step  = 2
-                        st.session_state.fp_msg   = (
-                            f"✅ OTP sent to {fe[:3]}*{fe[fe.index('@'):]}.  Valid for 10 minutes.",
-                            "success"
-                        )
+                        if sent_ok:
+                            st.session_state.fp_msg = (
+                                f"✅ OTP emailed to {fe[:3]}*{fe[fe.index('@'):]}.  Valid for 10 minutes. "
+                                f"Check your inbox (and spam folder).",
+                                "success"
+                            )
+                        else:
+                            st.session_state.fp_msg = (
+                                f"⚠️ Could not send the email ({send_err}). The OTP was still generated — "
+                                f"ask your admin to check the Gmail SMTP configuration, then try Resend OTP.",
+                                "error"
+                            )
                         st.rerun()
 
             elif st.session_state.fp_step == 2:
@@ -635,19 +711,13 @@ def show_auth_screen():
                 token_info = st.session_state.reset_tokens.get(fp_email_display)
                 if token_info:
                     mins_left = max(0, int((token_info["expires"] - get_ist_now()).total_seconds() // 60))
-                    otp_hint  = token_info["otp"]
                     st.markdown(
                         f'<div class="otp-box">'
                         f'<div class="otp-sent-badge">📨 OTP SENT TO {masked}</div>'
-                        f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;margin-bottom:10px;">'
+                        f'<div style="font-family:Exo 2;font-size:0.78rem;color:#5a7a9a;margin-bottom:6px;">'
                         f'⏱️ Expires in <b style="color:#ffaa00;">{mins_left} min</b></div>'
-                        f'<div style="font-family:Share Tech Mono;font-size:0.72rem;color:#2a4a6a;'
-                        f'background:rgba(0,0,0,0.3);border-radius:8px;padding:8px 12px;'
-                        f'border:1px dashed rgba(0,229,255,0.1);">'
-                        f'🛠️ DEV MODE · OTP: <span style="color:#ffaa00;font-size:1.1rem;'
-                        f'letter-spacing:4px;">{otp_hint}</span><br>'
-                        f'<span style="color:#2a4a6a;font-size:0.62rem;">'
-                        f'Remove this block in production</span></div>'
+                        f'<div style="font-family:Exo 2;font-size:0.72rem;color:#5a7a9a;">'
+                        f'Open your Gmail inbox and enter the 6-digit code below.</div>'
                         f'</div>',
                         unsafe_allow_html=True
                     )
@@ -659,7 +729,7 @@ def show_auth_screen():
                 )
 
                 with st.form("fp_reset_form", clear_on_submit=False):
-                    otp_input   = st.text_input("🔢  Enter 6-Digit OTP", placeholder="123456", max_chars=6, key="fp_otp_input")
+                    otp_input   = st.text_input("🔢  Enter 6-Digit OTP (from your email)", placeholder="123456", max_chars=6, key="fp_otp_input")
                     new_pw      = st.text_input("🔒  New Password", type="password", placeholder="8+ chars · Uppercase · Number · Symbol", key="fp_new_pw")
                     confirm_pw  = st.text_input("🔒  Confirm New Password", type="password", placeholder="Re-enter new password", key="fp_confirm_pw")
                     col_reset, col_back = st.columns(2)
@@ -710,13 +780,82 @@ def show_auth_screen():
                     if fp_email_display in st.session_state.users_db:
                         new_otp   = _generate_otp()
                         user_name = st.session_state.users_db[fp_email_display]["name"]
-                        _send_reset_email(fp_email_display, new_otp, user_name)
-                        st.session_state.fp_msg = (
-                            f"✅ New OTP sent to {masked}. Valid for 10 minutes.",
-                            "success"
-                        )
+                        with st.spinner("📨 Resending OTP..."):
+                            sent_ok, send_err = _send_reset_email(fp_email_display, new_otp, user_name)
+                        if sent_ok:
+                            st.session_state.fp_msg = (
+                                f"✅ New OTP emailed to {masked}. Valid for 10 minutes.",
+                                "success"
+                            )
+                        else:
+                            st.session_state.fp_msg = (
+                                f"⚠️ Could not resend the email ({send_err}).",
+                                "error"
+                            )
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
+
+        with tab_fe:
+            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-family:Share Tech Mono;font-size:0.65rem;color:#4a6a8a;'
+                'letter-spacing:2px;margin-bottom:16px;text-align:center;">'
+                'FIND THE EMAIL LINKED TO YOUR ACCOUNT</div>',
+                unsafe_allow_html=True
+            )
+
+            fe_msg_text, fe_msg_type = st.session_state.fe_msg
+            if fe_msg_text:
+                fe_css = ("auth-success" if fe_msg_type == "success"
+                          else "auth-error" if fe_msg_type == "error"
+                          else "auth-info")
+                st.markdown(f'<div class="{fe_css}">{fe_msg_text}</div>', unsafe_allow_html=True)
+
+            st.markdown(
+                '<div class="otp-box">'
+                '<div style="font-family:Exo 2;font-size:0.82rem;color:#5a7a9a;">'
+                'Enter the full name you registered with. We\'ll show a masked version of any '
+                'matching account email(s) so you can identify yours.</div>'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+            with st.form("forgot_email_form", clear_on_submit=False):
+                fe_name_input = st.text_input("👤  Full Name (as registered)", placeholder="Dr. Aditya Kumar", key="fe_name_input")
+                fe_submit = st.form_submit_button("🔍  FIND MY EMAIL", use_container_width=True)
+
+            if fe_submit:
+                query_name = fe_name_input.strip().lower()
+                if not query_name:
+                    st.session_state.fe_msg = ("⚠️ Please enter your name.", "error")
+                    st.rerun()
+                else:
+                    matches = [
+                        (email, data["name"])
+                        for email, data in st.session_state.users_db.items()
+                        if data["name"].strip().lower() == query_name
+                    ]
+                    if not matches:
+                        st.session_state.fe_msg = (
+                            "❌ No account found with that name. Double-check spelling or register a new account.",
+                            "error"
+                        )
+                    else:
+                        lines = []
+                        for email, name in matches:
+                            masked = email[:2] + "***" + email[email.index("@"):]
+                            lines.append(f"👤 <b>{name}</b> — <span style='color:#00e5ff;'>{masked}</span>")
+                        st.session_state.fe_msg = (
+                            "✅ Found " + str(len(matches)) + " matching account(s):<br>" + "<br>".join(lines),
+                            "success"
+                        )
+                    st.rerun()
+
+            st.markdown(
+                '<div style="text-align:center;margin-top:10px;font-family:Exo 2;font-size:0.72rem;color:#4a6a8a;">'
+                'Still can\'t find it? Contact your workspace admin for account recovery.</div>',
+                unsafe_allow_html=True
+            )
 
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown(
@@ -724,7 +863,6 @@ def show_auth_screen():
             '🛰️ INDIA AQI COMMAND CENTER v4.0 · REAL-TIME · INTELLIGENT · SECURE</div>',
             unsafe_allow_html=True
         )
-
 # ══════════════════════════════════════════════════════════════════
 # GUARD — show login if not authenticated
 # ══════════════════════════════════════════════════════════════════
